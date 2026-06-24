@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/meyt/tapetest"
 )
@@ -47,20 +48,46 @@ func setup(t *testing.T) *Client {
 // Health
 // ============================================================
 
+// TestHealth checks the health endpoint status, body, status-pattern
+// matching and raw response data access (Text/Json).
 func TestHealth(t *testing.T) {
 	c := setup(t)
 	r := c.Get("/health")
 	r.Status(200).
 		Json("status", "ok")
+
+	// Status code can also be asserted with a pattern.
+	c.Get("/health").Status("2xx")
+
+	// Raw response data access.
+	body := r.Response.Text()
+	fmt.Printf("Response body: %s\n", body)
+
+	data := r.Response.Json()
+	if data == nil {
+		t.Error("expected non-nil JSON data")
+	}
 }
 
 // ============================================================
 // Todos - List
 // ============================================================
 
-func TestListTodosEmpty(t *testing.T) {
+// TestListTodos verifies that listing todos returns an empty list by default
+// and that custom request headers and bearer tokens are accepted.
+func TestListTodos(t *testing.T) {
 	c := setup(t)
-	r := c.Get("/todos")
+	r := c.Get("/todos",
+		Header("X-Custom", "test-value"),
+		Bearer("my-token"),
+	)
+	r.Status(200)
+}
+
+// TestListTodosHead verifies the HEAD variant of the list endpoint.
+func TestListTodosHead(t *testing.T) {
+	c := setup(t)
+	r := c.Head("/todos")
 	r.Status(200)
 }
 
@@ -68,12 +95,15 @@ func TestListTodosEmpty(t *testing.T) {
 // Todos - Create
 // ============================================================
 
+// TestCreateTodo creates a todo and asserts the returned fields, the status
+// reason text and a status-pattern match.
 func TestCreateTodo(t *testing.T) {
 	c := setup(t)
 	r := c.Post("/todos", Json{
 		"title": "Buy milk",
 	})
 	r.Status(201).
+		ReasonContains("Created").
 		Json("title", "Buy milk").
 		Json("done", false).
 		Json("id")
@@ -103,6 +133,8 @@ func TestCreateTodoValidation(t *testing.T) {
 // Todos - Get
 // ============================================================
 
+// TestGetTodo fetches a single todo and asserts its fields plus value-range
+// comparisons on the id.
 func TestGetTodo(t *testing.T) {
 	c := setup(t)
 	c.Post("/todos", Json{"title": "Test todo"}).Status(201)
@@ -110,6 +142,8 @@ func TestGetTodo(t *testing.T) {
 	r := c.Get("/todos/1")
 	r.Status(200).
 		Json("id", 1).
+		Json("id", ">", 0).
+		Json("id", "<=", 100).
 		Json("title", "Test todo").
 		Json("done", false)
 }
@@ -199,10 +233,10 @@ func TestSearchTodosNoQuery(t *testing.T) {
 }
 
 // ============================================================
-// Todos - Path Params (using :param format)
+// Todos - Path Params
 // ============================================================
 
-func TestGetTodoWithParam(t *testing.T) {
+func TestGetTodoByColonParam(t *testing.T) {
 	c := setup(t)
 	c.Post("/todos", Json{"title": "Param test"}).Status(201)
 
@@ -211,17 +245,42 @@ func TestGetTodoWithParam(t *testing.T) {
 		Json("title", "Param test")
 }
 
-// ============================================================
-// Todos - Path Params (using {} format)
-// ============================================================
-
-func TestGetTodoWithBraceParam(t *testing.T) {
+func TestGetTodoByBraceParam(t *testing.T) {
 	c := setup(t)
 	c.Post("/todos", Json{"title": "Brace test"}).Status(201)
 
 	r := c.Get("/todos/{id}", Param{"id": 1})
 	r.Status(200).
 		Json("title", "Brace test")
+}
+
+// ============================================================
+// Todos - Full CRUD Workflow
+// ============================================================
+
+func TestTodoCRUDWorkflow(t *testing.T) {
+	c := setup(t)
+
+	// 1. Create
+	r := c.Post("/todos", Json{"title": "Workflow item"})
+	r.Status(201).Json("title", "Workflow item")
+
+	// 2. Read
+	r = c.Get("/todos/1")
+	r.Status(200).Json("title", "Workflow item").Json("done", false)
+
+	// 3. Update
+	r = c.Put("/todos/1", Json{"title": "Updated item", "done": true})
+	r.Status(200).Json("title", "Updated item").Json("done", true)
+
+	// 4. List
+	c.Get("/todos").Status(200)
+
+	// 5. Delete
+	c.Delete("/todos/1").Status(204)
+
+	// 6. Verify deleted
+	c.Get("/todos/1").Status(404)
 }
 
 // ============================================================
@@ -278,19 +337,20 @@ func TestCreateUserDuplicate(t *testing.T) {
 // Users - Get
 // ============================================================
 
+// TestGetUser fetches a user and asserts fields, plus Json operators for
+// contains-all (^), between (~) and any-of (*) matching.
 func TestGetUser(t *testing.T) {
 	c := setup(t)
 	c.Post("/users", Json{
-		"username": "janedoe",
-		"email":    "jane@example.com",
-		"role":     "admin",
+		"username": "opuser",
+		"email":    "op@example.com",
 	}).Status(201)
 
 	r := c.Get("/users/1")
 	r.Status(200).
-		Json("username", "janedoe").
-		Json("email", "jane@example.com").
-		Json("role", "admin")
+		Json("username", "^", "op", "user"). // contains all
+		Json("id", "~", 1, 100).             // between
+		Json("username", "*", "ZZZ", "op")   // any of
 }
 
 func TestGetUserNotFound(t *testing.T) {
@@ -384,233 +444,70 @@ func TestPatchUserMultipart(t *testing.T) {
 }
 
 // ============================================================
-// Auth - Login (Form body)
+// Users - Scalar fields (plain-text body assertions)
 // ============================================================
 
-func TestFormLogin(t *testing.T) {
+// TestHealthText asserts exact and regex matching against a plain-text body.
+func TestHealthText(t *testing.T) {
 	c := setup(t)
-	r := c.Post("/login", Form{
-		"username": "admin",
-		"password": "secret",
-	})
+	c.Get("/health-text").Status(200).
+		Expect("app is working").
+		Regex("is working")
+}
+
+// TestUserAgeAndBalance asserts numeric values on a user's scalar endpoints,
+// including comparison operators, regex matching and response header
+// matching on the Content-Type.
+func TestUserAgeAndBalance(t *testing.T) {
+	c := setup(t)
+	c.Post("/users", Json{"username": "num", "email": "num@example.com"}).Status(201)
+
+	// Age
+	c.Get("/users/1/age").Status(200).Expect(13) // exact numeric
+
+	// Balance
+	c.Get("/users/1/balance").Status(200).Expect(131.50)   // exact float
+	c.Get("/users/1/balance").Status(200).Expect(">", 131) // greater than
+	c.Get("/users/1/balance").Status(200).Expect("<", 132) // less than
+	c.Get("/users/1/balance").Status(200).Regex(`^\d+\.\d{2}$`)
+
+	// Content-Type header operators on a plain-text response.
+	r := c.Get("/users/1/balance")
 	r.Status(200).
-		Json("token", "admin-token-123").
-		Json("user", "admin").
-		Json("role", "admin")
+		Header("Content-Type", "^", "text/plain").   // contains all
+		Header("Content-Type", "*", "json", "plain") // any of
 }
 
-func TestFormLoginInvalid(t *testing.T) {
+// TestUserCreatedAt asserts date matching and comparisons on the
+// created_at scalar endpoint.
+func TestUserCreatedAt(t *testing.T) {
 	c := setup(t)
-	r := c.Post("/login", Form{
-		"username": "admin",
-		"password": "wrong",
-	})
-	r.Status(401).
-		Json("error", "invalid credentials")
+	c.Post("/users", Json{"username": "dt", "email": "dt@example.com"}).Status(201)
+
+	want := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	c.Get("/users/1/created_at").Status(200).Expect(want) // date match
+	c.Get("/users/1/created_at").Status(200).Expect(">", time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC))
+	c.Get("/users/1/created_at").Status(200).Expect("<", time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC))
 }
 
-func TestFormLoginMissingFields(t *testing.T) {
+// TestUserLicenses asserts contains-all (^), contains-none (!^),
+// contains-any (*) and numeric between (~) operators.
+func TestUserLicenses(t *testing.T) {
 	c := setup(t)
-	r := c.Post("/login", Form{"username": ""})
-	r.Status(400)
+	c.Post("/users", Json{"username": "lic", "email": "lic@example.com"}).Status(201)
+
+	// must contain all of these words
+	c.Get("/users/1/licenses").Status(200).Expect("^", "ielts", "icdl")
+	// must contain none of these words
+	c.Get("/users/1/licenses").Status(200).Expect("!^", "foss", "pmp")
+	// contains any of these words
+	c.Get("/users/1/licenses").Status(200).Expect("*", "ielts", "icdl", "xyz")
+	// numeric between
+	c.Get("/users/1/age").Status(200).Expect("~", 10, 20)
 }
 
 // ============================================================
-// Status Pattern Matching
-// ============================================================
-
-func TestStatusPattern(t *testing.T) {
-	c := setup(t)
-	c.Get("/health").Status("2xx")
-}
-
-// ============================================================
-// ReasonContains
-// ============================================================
-
-func TestReasonContains(t *testing.T) {
-	c := setup(t)
-	r := c.Post("/todos", Json{"title": "Test"})
-	r.Status(201).ReasonContains("Created")
-}
-
-// ============================================================
-// Response Data Access
-// ============================================================
-
-func TestResponseDataAccess(t *testing.T) {
-	c := setup(t)
-	r := c.Get("/health")
-	r.Status(200)
-
-	body := r.Response.Text()
-	fmt.Printf("Response body: %s\n", body)
-
-	data := r.Response.Json()
-	if data == nil {
-		t.Error("expected non-nil JSON data")
-	}
-}
-
-// ============================================================
-// JSON Value Comparison
-// ============================================================
-
-func TestJsonValueComparison(t *testing.T) {
-	c := setup(t)
-	c.Post("/todos", Json{"title": "Compare test"}).Status(201)
-
-	r := c.Get("/todos/1")
-	r.Status(200).
-		Json("id", ">", 0).
-		Json("id", "<=", 100)
-}
-
-// ============================================================
-// Headers and Bearer
-// ============================================================
-
-func TestWithHeaders(t *testing.T) {
-	c := setup(t)
-	r := c.Get("/todos",
-		Header("X-Custom", "test-value"),
-		Bearer("my-token"),
-	)
-	r.Status(200)
-}
-
-// ============================================================
-// HEAD Request
-// ============================================================
-
-func TestHeadRequest(t *testing.T) {
-	c := setup(t)
-	r := c.Head("/todos")
-	r.Status(200)
-}
-
-// ============================================================
-// Full CRUD Workflow
-// ============================================================
-
-func TestFullCRUDWorkflow(t *testing.T) {
-	c := setup(t)
-
-	// 1. Create
-	r := c.Post("/todos", Json{"title": "Workflow item"})
-	r.Status(201).Json("title", "Workflow item")
-
-	// 2. Read
-	r = c.Get("/todos/1")
-	r.Status(200).Json("title", "Workflow item").Json("done", false)
-
-	// 3. Update
-	r = c.Put("/todos/1", Json{"title": "Updated item", "done": true})
-	r.Status(200).Json("title", "Updated item").Json("done", true)
-
-	// 4. List
-	c.Get("/todos").Status(200)
-
-	// 5. Delete
-	c.Delete("/todos/1").Status(204)
-
-	// 6. Verify deleted
-	c.Get("/todos/1").Status(404)
-}
-
-// ============================================================
-// Cookie Examples
-// ============================================================
-
-func TestCookieBasics(t *testing.T) {
-	c := setup(t)
-
-	// Get endpoint that sets cookies
-	r := c.Get("/add-cookie")
-	r.Status(200).Json("message", "cookies have been set")
-
-	// Check that cookies were set
-	r.Cookie("we-added-cookie")         // just makes sure the cookie exists
-	r.Cookie("we-added-cookie", "true") // check value
-	r.Cookie("cookies-count", "1")      // check exact value
-
-	// Print all cookies
-	fmt.Println("Response cookies:")
-	for _, cookie := range r.Response.Cookies() {
-		fmt.Printf("  %s: %s\n", cookie.Name, cookie.Value)
-	}
-}
-
-func TestCookieWithOperator(t *testing.T) {
-	c := setup(t)
-
-	// Get endpoint that sets cookies
-	r := c.Get("/add-cookie")
-	r.Status(200)
-
-	// Check cookie with numeric comparison
-	r.Cookie("cookies-count", ">", 0)  // value should be greater than 0
-	r.Cookie("cookies-count", ">=", 1) // value should be greater or equal to 1
-	r.Cookie("cookies-count", "<", 10) // value should be less than 10
-	r.Cookie("cookies-count", "<=", 1) // value should be less or equal to 1
-	r.Cookie("cookies-count", "==", 1) // value should be equal to 1
-	r.Cookie("cookies-count", "!=", 0) // value should not be equal to 0
-}
-
-func TestSharedHeadersAndCookies(t *testing.T) {
-	c := setup(t)
-
-	// Set shared header and cookies
-	c.Header("Authorization", "Bearer token-123")
-	c.Header("X-Custom-Header", "custom-value")
-	c.Cookie("ad-uid", "abc123")
-	c.Cookie("session_id", "xyz789")
-
-	// These headers and cookies will be included in all subsequent requests
-	r := c.Get("/health")
-	r.Status(200)
-
-	// Remove shared header
-	c.Header("Authorization", nil)
-
-	// Remove shared cookie
-	c.Cookie("ad-uid", nil)
-
-	// Now only session_id cookie will be sent
-	r = c.Get("/health")
-	r.Status(200)
-}
-
-func TestCookieIncrement(t *testing.T) {
-	c := setup(t)
-
-	// First call sets count to 1
-	r := c.Get("/set-cookies")
-	r.Status(200)
-	r.Cookie("cookies-count", "1")
-
-	// Get all cookies from response
-	cookies := r.Response.Cookies()
-
-	// Find the cookies-count cookie
-	var countValue string
-	for _, cookie := range cookies {
-		if cookie.Name == "cookies-count" {
-			countValue = cookie.Value
-			break
-		}
-	}
-
-	if countValue != "" {
-		// Use the cookie value in the next request
-		r = c.Get("/set-cookies", Cookie("cookies-count", countValue))
-		r.Status(200)
-		r.Cookie("cookies-count", ">", 1) // Should be incremented to 2
-	}
-}
-
-// ============================================================
-// Admin Authentication
+// Users - Delete (Admin authorization)
 // ============================================================
 
 func TestAdminLogin(t *testing.T) {
@@ -682,4 +579,135 @@ func TestAdminCannotDeleteWithUserToken(t *testing.T) {
 	// Try to delete user with regular user token (should fail - admin only)
 	r = c.Delete("/users/:id", Param{"id": int(userId)}, Header("Authorization", "Bearer "+userToken))
 	r.Status(403) // Forbidden - admin access required
+}
+
+// ============================================================
+// Auth - Login (Form body)
+// ============================================================
+
+func TestFormLogin(t *testing.T) {
+	c := setup(t)
+	r := c.Post("/login", Form{
+		"username": "admin",
+		"password": "secret",
+	})
+	r.Status(200).
+		Json("token", "admin-token-123").
+		Json("user", "admin").
+		Json("role", "admin")
+}
+
+func TestFormLoginInvalid(t *testing.T) {
+	c := setup(t)
+	r := c.Post("/login", Form{
+		"username": "admin",
+		"password": "wrong",
+	})
+	r.Status(401).
+		Json("error", "invalid credentials")
+}
+
+func TestFormLoginMissingFields(t *testing.T) {
+	c := setup(t)
+	r := c.Post("/login", Form{"username": ""})
+	r.Status(400)
+}
+
+// ============================================================
+// Cookies
+// ============================================================
+
+// TestCookieBasics verifies cookies set by the endpoint and demonstrates the
+// presence, exact-value and any-of/between operators on cookies.
+func TestCookieBasics(t *testing.T) {
+	c := setup(t)
+
+	// Get endpoint that sets cookies
+	r := c.Get("/add-cookie")
+	r.Status(200).Json("message", "cookies have been set")
+
+	// Check that cookies were set
+	r.Cookie("we-added-cookie")         // just makes sure the cookie exists
+	r.Cookie("we-added-cookie", "true") // check value
+	r.Cookie("cookies-count", "1")      // check exact value
+
+	// Cookie operators
+	r.Cookie("cookies-count", "~", 1, 10)           // between
+	r.Cookie("we-added-cookie", "*", "ZZZ", "true") // any of
+
+	// Print all cookies
+	fmt.Println("Response cookies:")
+	for _, cookie := range r.Response.Cookies() {
+		fmt.Printf("  %s: %s\n", cookie.Name, cookie.Value)
+	}
+}
+
+// TestCookieNumericOperators demonstrates the full set of numeric comparison
+// operators against cookie values.
+func TestCookieNumericOperators(t *testing.T) {
+	c := setup(t)
+
+	// Get endpoint that sets cookies
+	r := c.Get("/add-cookie")
+	r.Status(200)
+
+	// Check cookie with numeric comparison
+	r.Cookie("cookies-count", ">", 0)  // value should be greater than 0
+	r.Cookie("cookies-count", ">=", 1) // value should be greater or equal to 1
+	r.Cookie("cookies-count", "<", 10) // value should be less than 10
+	r.Cookie("cookies-count", "<=", 1) // value should be less or equal to 1
+	r.Cookie("cookies-count", "==", 1) // value should be equal to 1
+	r.Cookie("cookies-count", "!=", 0) // value should not be equal to 0
+}
+
+func TestSharedHeadersAndCookies(t *testing.T) {
+	c := setup(t)
+
+	// Set shared header and cookies
+	c.Header("Authorization", "Bearer token-123")
+	c.Header("X-Custom-Header", "custom-value")
+	c.Cookie("ad-uid", "abc123")
+	c.Cookie("session_id", "xyz789")
+
+	// These headers and cookies will be included in all subsequent requests
+	r := c.Get("/health")
+	r.Status(200)
+
+	// Remove shared header
+	c.Header("Authorization", nil)
+
+	// Remove shared cookie
+	c.Cookie("ad-uid", nil)
+
+	// Now only session_id cookie will be sent
+	r = c.Get("/health")
+	r.Status(200)
+}
+
+func TestCookieIncrement(t *testing.T) {
+	c := setup(t)
+
+	// First call sets count to 1
+	r := c.Get("/set-cookies")
+	r.Status(200)
+	r.Cookie("cookies-count", "1")
+
+	// Get all cookies from response
+	cookies := r.Response.Cookies()
+
+	// Find the cookies-count cookie
+	var countValue string
+	for _, cookie := range cookies {
+		if cookie.Name == "cookies-count" {
+			countValue = cookie.Value
+			break
+		}
+	}
+
+	if countValue != "" {
+		// Use the cookie value in the next request
+		r = c.Get("/set-cookies", Cookie("cookies-count", countValue))
+		r.Status(200)
+		r.Cookie("cookies-count", ">", 1) // Should be incremented to 2
+	}
 }

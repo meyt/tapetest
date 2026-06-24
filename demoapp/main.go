@@ -132,8 +132,15 @@ func NewApp() *App {
 	e.POST("/users", app.createUser)
 	e.GET("/users/:id", app.getUser)
 	e.GET("/users/:id/profile", app.getUserProfile)
+	e.GET("/users/:id/age", app.getUserAge)
+	e.GET("/users/:id/balance", app.getUserBalance)
+	e.GET("/users/:id/created_at", app.getUserCreatedAt)
+	e.GET("/users/:id/licenses", app.getUserLicenses)
 	e.PATCH("/users/:id", app.patchUser)
 	e.DELETE("/users/:id", app.deleteUser)
+
+	// Plain-text endpoints (for body assertion examples)
+	e.GET("/health-text", app.healthText)
 
 	// Admin
 	e.POST("/admin/login", app.adminLogin)
@@ -400,6 +407,90 @@ func (a *App) getUser(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "user not found"})
 	}
 	return c.JSON(http.StatusOK, user)
+}
+
+// --- Plain-text user fields (for body assertion examples) ---
+
+// @Title Get user age
+// @Description Returns a user's age as plain text
+// @Tag users
+// @Method GET
+// @Path /users/:id/age
+func (a *App) getUserAge(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.String(http.StatusBadRequest, "invalid id")
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if _, ok := a.users[id]; !ok {
+		return c.String(http.StatusNotFound, "user not found")
+	}
+	return c.String(http.StatusOK, "13")
+}
+
+// @Title Get user balance
+// @Description Returns a user's balance as plain text
+// @Tag users
+// @Method GET
+// @Path /users/:id/balance
+func (a *App) getUserBalance(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.String(http.StatusBadRequest, "invalid id")
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if _, ok := a.users[id]; !ok {
+		return c.String(http.StatusNotFound, "user not found")
+	}
+	return c.String(http.StatusOK, "131.50")
+}
+
+// @Title Get user created_at
+// @Description Returns a user's creation timestamp (RFC3339) as plain text
+// @Tag users
+// @Method GET
+// @Path /users/:id/created_at
+func (a *App) getUserCreatedAt(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.String(http.StatusBadRequest, "invalid id")
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if _, ok := a.users[id]; !ok {
+		return c.String(http.StatusNotFound, "user not found")
+	}
+	ts := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	return c.String(http.StatusOK, ts.Format(time.RFC3339))
+}
+
+// @Title Get user licenses
+// @Description Returns a user's licenses as plain text
+// @Tag users
+// @Method GET
+// @Path /users/:id/licenses
+func (a *App) getUserLicenses(c echo.Context) error {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		return c.String(http.StatusBadRequest, "invalid id")
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if _, ok := a.users[id]; !ok {
+		return c.String(http.StatusNotFound, "user not found")
+	}
+	return c.String(http.StatusOK, "ielts,icdl,mba")
+}
+
+// @Title Health (plain text)
+// @Description Returns a plain-text health message
+// @Tag health
+// @Method GET
+// @Path /health-text
+func (a *App) healthText(c echo.Context) error {
+	return c.String(http.StatusOK, "app is working")
 }
 
 // @Title Get user profile

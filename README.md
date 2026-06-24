@@ -81,14 +81,15 @@ r.Cookie("session_id", "abc123") // Assert cookie value
 r.Json("user.name", "John")      // Dot notation
 r.Json("user.age", ">", 20)      // with operators: ">", "<=", etc.
 r.Json("user.created_at", "<=", time.Now())
+r.Expect("app is working")       // Assert raw body text
+r.Regex("is working$")           // Assert body matches a regex
 r.Error()                        // Assert request resulted in error
 ```
 
 ### Supported Assert Operators
 
-#### JSON Path Comparisons
-
-JSON assertions support comparison operators for numeric, time, and string values:
+The following operators are shared by `Expect`, `Json`, `Cookie`, and `Header`
+assertions, so the same syntax works everywhere:
 
 | Operator | Description | Example | Types Supported |
 |----------|-------------|---------|-----------------|
@@ -99,6 +100,36 @@ JSON assertions support comparison operators for numeric, time, and string value
 | `==` | Equal (explicit) | `r.Json("status", "==", "active")` | all types |
 | `=` | Equal (shorthand) | `r.Json("status", "=", "active")` | all types |
 | `!=` | Not equal | `r.Json("error", "!=", null)` | all types |
+| `~` | Between (inclusive) | `r.Json("age", "~", 18, 30)` | numeric |
+| `^` | Contains all of | `r.Expect("^", "ielts", "icdl")` | text |
+| `!^` | Contains none of | `r.Expect("!^", "mba", "foss")` | text |
+| `*` | Contains any of | `r.Expect("*", "ielts", "mba")` | text |
+
+#### Body Assertions
+
+`Expect` asserts the raw response body as text. The body is trimmed of
+surrounding whitespace before comparison. It supports exact matches plus the
+full set of operators above.
+
+```go
+r.Expect("app is working")                                      // exact string match
+r.Expect(13)                                                     // numeric match
+r.Expect(131.50)                                                 // numeric (float) match
+r.Expect(">", 131.50)                                            // numeric with operator
+r.Expect(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC))            // date match (RFC3339)
+r.Expect(">", time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC))       // date with operator
+r.Expect("^", "ielts", "icdl")                                   // must contain these words
+r.Expect("!^", "mba", "foss")                                    // must NOT contain these words
+r.Expect("~", 18, 25)                                            // numeric between two values
+r.Expect("*", "ielts", "icdl", "mba")                            // contains any of these
+```
+
+`Regex` asserts the body matches a regular expression:
+
+```go
+r.Regex("is working$")
+r.Regex(`^\d{3}-\d{4}$`)
+```
 
 #### Status Code Patterns
 
@@ -111,19 +142,19 @@ r.Status("4xx")    // Any 4xx client error
 r.Status("5xx")    // Any 5xx server error
 ```
 
-#### Cookie Numeric Comparisons
+#### Cookie Comparisons
 
-Cookie assertions support comparison operators for numeric values:
+Cookie assertions support all the operators listed above, applied to the cookie
+value:
 
 ```go
 r.Cookie("session_id")              // Check cookie exists
 r.Cookie("session_id", "abc123")    // Check cookie value
 r.Cookie("count", ">", 1)           // Numeric greater than
-r.Cookie("count", "<", 10)          // Numeric less than
-r.Cookie("count", ">=", 1)          // Numeric greater or equal
 r.Cookie("count", "<=", 10)         // Numeric less or equal
 r.Cookie("count", "==", 5)          // Numeric equal
-r.Cookie("count", "!=", 0)          // Numeric not equal
+r.Cookie("count", "~", 1, 10)       // Numeric between 1 and 10
+r.Cookie("flags", "^", "vip", "pro") // Value contains all substrings
 ```
 
 #### JSON Path Navigation

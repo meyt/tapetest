@@ -84,25 +84,28 @@ func (r *Response) ReasonContains(text string) *Response {
 
 // --- Header Assertions ---
 
-// Header asserts a response header. With one argument, checks existence.
-// With two arguments, checks the value matches.
+// Header asserts a response header. With no value, checks existence.
+// With a value, checks equality or evaluates an operator expression.
+//
+// All operators supported by Expect/Json are available here too.
 //
 //	r.Header("Content-Type")                        // check exists
 //	r.Header("Content-Type", "application/json")    // check value
-func (r *Response) Header(key string, value ...string) *Response {
+//	r.Header("X-Count", ">", 5)                     // numeric operator
+//	r.Header("X-Tags", "^", "vip", "pro")           // contains all
+func (r *Response) Header(key string, value ...interface{}) *Response {
 	r.t.Helper()
 
 	actual := r.headers.Get(key)
 	if len(value) == 0 {
-		// Check existence
 		if actual == "" {
 			r.t.Errorf("\nexpected header %q to exist but it was not found", key)
 		}
-	} else {
-		// Check value
-		if actual != value[0] {
-			r.t.Errorf("\nheader %q mismatch:\n  expected: %s\n  actual:   %s", key, value[0], actual)
-		}
+		return r
+	}
+
+	if ok, msg := evalAssertion(actual, value...); !ok {
+		r.t.Errorf("\nheader %q assertion failed:\n  %s\n  value: %s", key, msg, actual)
 	}
 	return r
 }
@@ -111,10 +114,15 @@ func (r *Response) Header(key string, value ...string) *Response {
 
 // Json asserts on JSON response using dot-notation paths.
 //
-//	r.Json("user")                     // assert key exists
-//	r.Json("user.name", "John")        // assert value equals
-//	r.Json("user.age", ">", 18)        // assert with comparison operator
+// All operators supported by Expect are available here too (applied to the
+// resolved JSON value rendered as a string).
+//
+//	r.Json("user")                          // assert key exists
+//	r.Json("user.name", "John")             // assert value equals
+//	r.Json("user.age", ">", 18)             // assert with comparison operator
 //	r.Json("user.created_at", "<=", time.Now())
+//	r.Json("user.tags", "^", "vip", "pro")  // value contains all substrings
+//	r.Json("user.age", "~", 18, 30)         // value is between 18 and 30
 func (r *Response) Json(path string, args ...interface{}) *Response {
 	r.t.Helper()
 
@@ -130,29 +138,36 @@ func (r *Response) Json(path string, args ...interface{}) *Response {
 		return r
 	}
 
-	switch len(args) {
-	case 0:
-		// Just check existence — already done above
-	case 1:
-		// Equality check
-		if !jsonValueEqual(value, args[0]) {
-			r.t.Errorf("\nJSON %q mismatch:\n  expected: %v\n  actual:   %v", path, args[0], value)
-		}
-	case 2:
-		// Comparison: Json("user.age", ">", 18)
-		operator, ok := args[0].(string)
-		if !ok {
-			r.t.Fatalf("tapetest: Json() comparison operator must be string, got %T", args[0])
-			return r
-		}
-		if !compareValues(value, operator, args[1]) {
-			r.t.Errorf("\nJSON %q comparison failed: %v %s %v", path, value, operator, args[1])
-		}
-	default:
-		r.t.Fatalf("tapetest: Json() accepts 0, 1, or 2 extra arguments, got %d", len(args))
+	if len(args) == 0 {
+		return r // existence already verified above
 	}
 
+	actual := jsonValueToString(value)
+	if ok, msg := evalAssertion(actual, args...); !ok {
+		r.t.Errorf("\nJSON %q assertion failed:\n  %s\n  value: %v", path, msg, value)
+	}
 	return r
+}
+
+// jsonValueToString renders a resolved JSON value to a string suitable for the
+// shared assertion engine. Numbers keep their natural representation so that
+// numeric parsing and equality still work.
+func jsonValueToString(value interface{}) string {
+	switch v := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // --- Error Assertion ---
@@ -164,6 +179,48 @@ func (r *Response) Error() *Response {
 	r.t.Helper()
 	if r.err == nil {
 		r.t.Errorf("\nexpected an error but got nil (status: %d)", r.code)
+	}
+	return r
+}
+
+// --- Body Assertions ---
+
+// Expect asserts the response body as text. The body is trimmed of surrounding
+// whitespace before comparison. It supports exact matches and the full set of
+// operators (see Expect operators in the README).
+//
+//	r.Expect("app is working")                     // exact string match
+//	r.Expect(13)                                    // numeric match
+//	r.Expect(131.50)                                // numeric (float) match
+//	r.Expect(">", 131.50)                           // numeric with operator
+//	r.Expect(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)) // date match (RFC3339)
+//	r.Expect(">", time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC))
+//	r.Expect("^", "ielts", "icdl")                  // must contain all of these
+//	r.Expect("!^", "mba", "foss")                   // must contain none of these
+//	r.Expect("~", 18, 25)                           // numeric between two values
+//	r.Expect("*", "ielts", "icdl", "mba")           // contains any of these
+func (r *Response) Expect(args ...interface{}) *Response {
+	r.t.Helper()
+	body := strings.TrimSpace(string(r.body))
+	if ok, msg := evalAssertion(body, args...); !ok {
+		r.t.Errorf("\nbody assertion failed:\n  %s\n  body: %s", msg, string(r.body))
+	}
+	return r
+}
+
+// Regex asserts that the response body matches a regular expression.
+//
+//	r.Regex("is working$")
+//	r.Regex(`^\d{3}-\d{4}$`)
+func (r *Response) Regex(pattern string) *Response {
+	r.t.Helper()
+	matched, err := matchRegex(string(r.body), pattern)
+	if err != nil {
+		r.t.Fatalf("tapetest: invalid regex %q: %v", pattern, err)
+		return r
+	}
+	if !matched {
+		r.t.Errorf("\nbody does not match regex %q\n  body: %s", pattern, string(r.body))
 	}
 	return r
 }
@@ -257,15 +314,16 @@ func generateFilename(headers http.Header) string {
 
 // --- Cookie Assertions ---
 
-// Cookie asserts a response cookie. With one argument, checks existence.
-// With two arguments, checks the value matches. Supports operators for numeric values.
+// Cookie asserts a response cookie. With no value, checks existence.
+// With a value, checks equality or evaluates an operator expression.
 //
-//	r.Cookie("session_id")                                    // check exists
-//	r.Cookie("session_id", "abc123")                           // check value
-//	r.Cookie("count", ">", 1)                                  // check numeric greater than
-//	r.Cookie("count", "<", 10)                                 // check numeric less than
-//	r.Cookie("count", ">=", 1)                                 // check numeric greater or equal
-//	r.Cookie("count", "<=", 10)                                // check numeric less or equal
+// All operators supported by Expect/Json are available here too.
+//
+//	r.Cookie("session_id")                  // check exists
+//	r.Cookie("session_id", "abc123")        // check value
+//	r.Cookie("count", ">", 1)               // numeric greater than
+//	r.Cookie("count", "~", 1, 10)           // numeric between 1 and 10
+//	r.Cookie("flags", "^", "opt-in", "vip") // value contains all
 func (r *Response) Cookie(key string, value ...interface{}) *Response {
 	r.t.Helper()
 
@@ -282,71 +340,13 @@ func (r *Response) Cookie(key string, value ...interface{}) *Response {
 		return r
 	}
 
-	if len(value) > 0 {
-		// Check value
-		if len(value) == 1 {
-			// Simple value check
-			if fmt.Sprintf("%v", value[0]) != cookie.Value {
-				r.t.Errorf("\ncookie %q value mismatch:\n  expected: %v\n  actual:   %s", key, value[0], cookie.Value)
-			}
-		} else if len(value) == 2 {
-			// Operator check for numeric values
-			operator, ok := value[0].(string)
-			if !ok {
-				r.t.Fatalf("tapetest: Cookie() operator must be a string, got %T", value[0])
-			}
-
-			expectedNum, ok := value[1].(int)
-			if !ok {
-				// Try to convert from string
-				if strVal, ok := value[1].(string); ok {
-					var err error
-					expectedNum, err = strconv.Atoi(strVal)
-					if err != nil {
-						r.t.Fatalf("tapetest: Cookie() expected value must be a number or numeric string, got %T", value[1])
-					}
-				} else {
-					r.t.Fatalf("tapetest: Cookie() expected value must be a number or numeric string, got %T", value[1])
-				}
-			}
-
-			actualNum, err := strconv.Atoi(cookie.Value)
-			if err != nil {
-				r.t.Errorf("\ncookie %q value %q is not a numeric value for comparison", key, cookie.Value)
-				return r
-			}
-
-			switch operator {
-			case ">":
-				if !(actualNum > expectedNum) {
-					r.t.Errorf("\ncookie %q value %d is not greater than %d", key, actualNum, expectedNum)
-				}
-			case "<":
-				if !(actualNum < expectedNum) {
-					r.t.Errorf("\ncookie %q value %d is not less than %d", key, actualNum, expectedNum)
-				}
-			case ">=":
-				if !(actualNum >= expectedNum) {
-					r.t.Errorf("\ncookie %q value %d is not greater than or equal to %d", key, actualNum, expectedNum)
-				}
-			case "<=":
-				if !(actualNum <= expectedNum) {
-					r.t.Errorf("\ncookie %q value %d is not less than or equal to %d", key, actualNum, expectedNum)
-				}
-			case "==":
-				if actualNum != expectedNum {
-					r.t.Errorf("\ncookie %q value %d is not equal to %d", key, actualNum, expectedNum)
-				}
-			case "!=":
-				if actualNum == expectedNum {
-					r.t.Errorf("\ncookie %q value %d should not be equal to %d", key, actualNum, expectedNum)
-				}
-			default:
-				r.t.Fatalf("tapetest: Cookie() unsupported operator %q, use >, <, >=, <=, ==, or !=", operator)
-			}
-		}
+	if len(value) == 0 {
+		return r // existence already verified above
 	}
 
+	if ok, msg := evalAssertion(cookie.Value, value...); !ok {
+		r.t.Errorf("\ncookie %q assertion failed:\n  %s\n  value: %s", key, msg, cookie.Value)
+	}
 	return r
 }
 
