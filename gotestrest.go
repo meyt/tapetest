@@ -57,6 +57,22 @@ func HandlerClient(t *testing.T, handler http.Handler) *Client {
 	}
 }
 
+// BaseUrl sets a URL prefix that is prepended to every request path.
+// Useful when all routes share a common prefix (e.g. an API version).
+// It returns the Client itself so it can be chained at construction time.
+//
+//	c := HandlerClient(t, myHandler).BaseUrl("/api/v1")
+//	c.Get("/users").Status(200)
+//
+// or set after construction:
+//
+//	c := HandlerClient(t, myHandler)
+//	c.BaseUrl("/api/v1")
+func (c *Client) BaseUrl(prefix string) *Client {
+	c.baseURL = prefix
+	return c
+}
+
 // EchoClient is an alias for HandlerClient. *echo.Echo implements http.Handler.
 func EchoClient(t *testing.T, handler http.Handler) *Client {
 	t.Helper()
@@ -142,6 +158,11 @@ func (c *Client) do(method, path string, body interface{}, opts ...Option) *Resp
 
 	// Resolve path parameters like :id, :name
 	path = resolveParams(path, cfg.params)
+
+	// Prepend the configured base URL (set via BaseUrl) once, so that
+	// every downstream path (handler/server/multipart/form) and the
+	// recording layer all see the full, final path.
+	path = c.baseURL + path
 
 	// Handle file uploads or form with files via multipart
 	if len(cfg.files) > 0 {
@@ -262,7 +283,8 @@ func (c *Client) doHandler(method, path string, body io.Reader, cfg *requestConf
 func (c *Client) doServer(method, path string, body io.Reader, cfg *requestConfig) *Response {
 	c.t.Helper()
 
-	fullURL := c.baseURL + path
+	// c.baseURL was already prepended to path in do(), so use it directly.
+	fullURL := path
 	if len(cfg.query) > 0 {
 		q := url.Values{}
 		for k, v := range cfg.query {

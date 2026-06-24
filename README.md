@@ -45,6 +45,17 @@ c := EchoClient(t, echoInstance)          // Echo v4/v5
 c := GinClient(t, ginEngine)              // Gin
 ```
 
+## Base URL
+
+Set a common prefix prepended to every request path — handy when all your
+routes live under an API version like `/api/v1`.
+
+```go
+c := HandlerClient(t, myHandler)
+c.BaseUrl("/api/v1")
+c.Get("/users").Status(200)        // -> /api/v1/users
+```
+
 ## HTTP Methods
 
 ```go

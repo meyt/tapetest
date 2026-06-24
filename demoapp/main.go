@@ -32,7 +32,7 @@ import (
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host localhost:8080
-// @BasePath /
+// @BasePath /api/v1
 // @schemes http
 
 // --- Security Definitions (go-swag style, declared once) ---
@@ -116,46 +116,49 @@ func NewApp() *App {
 	app.admins[0] = admin
 	app.adminTokens["admin-token-123"] = 0
 
+	// All API routes live under the /api/v1 prefix.
+	api := e.Group("/api/v1")
+
 	// Health
-	e.GET("/health", app.health)
+	api.GET("/health", app.health)
 
 	// Todos CRUD
-	e.GET("/todos", app.listTodos)
-	e.POST("/todos", app.createTodo)
-	e.GET("/todos/:id", app.getTodo)
-	e.PUT("/todos/:id", app.updateTodo)
-	e.PATCH("/todos/:id", app.patchTodo)
-	e.DELETE("/todos/:id", app.deleteTodo)
-	e.GET("/todos/search", app.searchTodos)
+	api.GET("/todos", app.listTodos)
+	api.POST("/todos", app.createTodo)
+	api.GET("/todos/:id", app.getTodo)
+	api.PUT("/todos/:id", app.updateTodo)
+	api.PATCH("/todos/:id", app.patchTodo)
+	api.DELETE("/todos/:id", app.deleteTodo)
+	api.GET("/todos/search", app.searchTodos)
 
 	// Users
-	e.POST("/users", app.createUser)
-	e.GET("/users/:id", app.getUser)
-	e.GET("/users/:id/profile", app.getUserProfile)
-	e.GET("/users/:id/age", app.getUserAge)
-	e.GET("/users/:id/balance", app.getUserBalance)
-	e.GET("/users/:id/created_at", app.getUserCreatedAt)
-	e.GET("/users/:id/licenses", app.getUserLicenses)
-	e.PATCH("/users/:id", app.patchUser)
-	e.DELETE("/users/:id", app.deleteUser)
+	api.POST("/users", app.createUser)
+	api.GET("/users/:id", app.getUser)
+	api.GET("/users/:id/profile", app.getUserProfile)
+	api.GET("/users/:id/age", app.getUserAge)
+	api.GET("/users/:id/balance", app.getUserBalance)
+	api.GET("/users/:id/created_at", app.getUserCreatedAt)
+	api.GET("/users/:id/licenses", app.getUserLicenses)
+	api.PATCH("/users/:id", app.patchUser)
+	api.DELETE("/users/:id", app.deleteUser)
 
 	// Plain-text endpoints (for body assertion examples)
-	e.GET("/health-text", app.healthText)
+	api.GET("/health-text", app.healthText)
 
 	// Admin
-	e.POST("/admin/login", app.adminLogin)
+	api.POST("/admin/login", app.adminLogin)
 
 	// Auth
-	e.POST("/login", app.login)
+	api.POST("/login", app.login)
 
 	// HEAD/OPTIONS
-	e.HEAD("/todos", app.listTodos)
+	api.HEAD("/todos", app.listTodos)
 
 	// Cookie examples
-	e.GET("/add-cookie", app.addCookie)
-	e.GET("/set-cookies", app.setCookies)
+	api.GET("/add-cookie", app.addCookie)
+	api.GET("/set-cookies", app.setCookies)
 
-	// Docs - serve generated swagger-ui documentation
+	// Docs - serve generated swagger-ui documentation (kept at root).
 	e.Static("/docs", "docs")
 
 	return app

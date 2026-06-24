@@ -215,11 +215,16 @@ type endpointGroup struct {
 // GenerateOpenAPIFromRecordings generates an OpenAPI document from recorded test exchanges
 // and handler annotations. Test paths are matched to annotation templates and grouped.
 // Each test case appears as an example with its actual request/response.
+//
+// basePath is the common URL prefix shared by all routes (e.g. "/api/v1",
+// from the go-swag @BasePath directive). It is stripped from recorded request
+// paths before matching against annotation templates so that recorded paths
+// like "/api/v1/users/1" line up with templates like "/users/:id".
 func GenerateOpenAPIFromRecordings(
 	exchanges []RecordedExchange,
 	annotations []HandlerAnnotation,
 	securityDefs []SecurityDefinition,
-	title, version string,
+	basePath, title, version string,
 	readableExamples bool,
 ) *OpenAPIDocument {
 	doc := NewOpenAPIDocument(title, version)
@@ -241,6 +246,15 @@ func GenerateOpenAPIFromRecordings(
 	for _, ex := range exchanges {
 		method := strings.ToLower(ex.Request.Method)
 		testPath := ex.Request.Path
+
+		// Strip the shared base path prefix (e.g. "/api/v1") so that
+		// recorded paths match the relative annotation templates.
+		if basePath != "" {
+			testPath = strings.TrimPrefix(testPath, basePath)
+			if testPath == "" {
+				testPath = "/"
+			}
+		}
 
 		// Find matching annotation
 		var matchedAnn *HandlerAnnotation

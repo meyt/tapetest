@@ -39,9 +39,11 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// setup creates a fresh Client for each test.
+// setup creates a fresh Client for each test. All demo app routes are served
+// under the /api/v1 prefix, so the client's BaseUrl is set once here and every
+// subsequent request path is resolved relative to it.
 func setup(t *testing.T) *Client {
-	return EchoClient(t, NewApp().Echo)
+	return EchoClient(t, NewApp().Echo).BaseUrl("/api/v1")
 }
 
 // ============================================================

@@ -415,7 +415,7 @@ func GenerateDocs(opts GenerateDocsOptions) error {
 		}
 	}
 
-	doc := GenerateOpenAPIFromRecordings(exchanges, annotations, securityDefs, opts.Title, opts.Version, opts.ReadableExamples)
+	doc := GenerateOpenAPIFromRecordings(exchanges, annotations, securityDefs, generalInfo.BasePath, opts.Title, opts.Version, opts.ReadableExamples)
 
 	// Apply go-swag General API Info (overrides flag defaults when present)
 	doc.ApplyGeneralAPIInfo(generalInfo)
