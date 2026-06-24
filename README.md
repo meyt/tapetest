@@ -8,7 +8,7 @@ Write tests in seconds, not minutes.
 ## Features
 
 - **Zero dependencies** — only Go standard library
-- **Automatic OpenAPI documentation** — generate Swagger UI from your tests [(demo)[https://meyt.github.io/tapetest]]
+- **Automatic OpenAPI documentation** — generate Swagger UI from your tests [[demo]](https://meyt.github.io/tapetest)
 - **Fluent assertions** — clean, chainable API for status, headers, JSON, and more
 - **Multiple client types** — test against handlers directly or running servers
 - **Framework agnostic** — works with Echo, Gin, Chi, or any `http.Handler`
