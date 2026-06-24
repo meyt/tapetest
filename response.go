@@ -246,6 +246,82 @@ func (r *Response) Stream(fn func(io.Reader) error) *Response {
 	return r
 }
 
+// --- Value Accessors ---
+
+// JsonVal returns a value from the JSON response body.
+// With no argument it returns the full parsed JSON object.
+// With a dot-notation path it returns the value at that path.
+//
+//	jsonFull := r.JsonVal()                // full JSON object
+//	jsonValue := r.JsonVal("user.age")    // nested value
+//	jsonItem := r.JsonVal("items.0.name") // array index
+func (r *Response) JsonVal(path ...string) interface{} {
+	var data interface{}
+	if err := json.Unmarshal(r.body, &data); err != nil {
+		return nil
+	}
+	if len(path) == 0 || path[0] == "" {
+		return data
+	}
+	value, exists := resolveJSONPath(data, path[0])
+	if !exists {
+		return nil
+	}
+	return value
+}
+
+// StatusVal returns the HTTP status code.
+//
+//	statusCode := r.StatusVal()
+func (r *Response) StatusVal() int {
+	return r.code
+}
+
+// ReasonVal returns the status reason text.
+//
+//	statusReason := r.ReasonVal()
+func (r *Response) ReasonVal() string {
+	return r.reason
+}
+
+// CookieVal returns response cookie data.
+// With no argument it returns all cookies.
+// With a name it returns that single cookie's value as a string.
+//
+//	cookieFull := r.CookieVal()        // all cookies ([]*http.Cookie)
+//	cookieValue := r.CookieVal("count") // single cookie value (string)
+func (r *Response) CookieVal(key ...string) interface{} {
+	if len(key) == 0 || key[0] == "" {
+		return r.cookies
+	}
+	for _, c := range r.cookies {
+		if c.Name == key[0] {
+			return c.Value
+		}
+	}
+	return ""
+}
+
+// HeaderVal returns response header data.
+// With no argument it returns all headers.
+// With a key it returns that single header's value as a string.
+//
+//	headerFull := r.HeaderVal()                 // all headers (http.Header)
+//	headerValue := r.HeaderVal("Authorization") // single header value (string)
+func (r *Response) HeaderVal(key ...string) interface{} {
+	if len(key) == 0 || key[0] == "" {
+		return r.headers
+	}
+	return r.headers.Get(key[0])
+}
+
+// TextVal returns the response body as raw text.
+//
+//	bodyText := r.TextVal()
+func (r *Response) TextVal() string {
+	return string(r.body)
+}
+
 // --- ResponseData Methods ---
 
 // Json returns the response body parsed as a generic JSON value.

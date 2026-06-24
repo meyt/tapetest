@@ -191,6 +191,24 @@ cookies := r.Response.cookies        // Parsed Cookies
 r.Response.Write("/tmp/file")    // Save to file
 ```
 
+## Value Accessors
+
+Get raw response values directly from the response for use in your test logic:
+
+```go
+r := c.Get("/users")
+
+jsonFull := r.JsonVal()                  // full parsed JSON object
+jsonValue := r.JsonVal("user.age")       // value via dot notation (supports array indices: "items.0.name")
+statusCode := r.StatusVal()              // HTTP status code (int)
+statusReason := r.ReasonVal()            // status reason text (string)
+cookieFull := r.CookieVal()              // all cookies ([]*http.Cookie)
+cookieValue := r.CookieVal("count")      // single cookie value (string)
+headerFull := r.HeaderVal()              // all headers (http.Header)
+headerValue := r.HeaderVal("Authorization") // single header value (string)
+bodyText := r.TextVal()                  // response body as raw text (string)
+```
+
 ## Shared Headers and Cookies
 
 ```go
