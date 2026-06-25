@@ -85,6 +85,26 @@ Rules & gotchas:
   `r.Json("done", true)` works because `fmt.Sprintf("%v", true) == "true"`.
 - `nil` JSON values render to `""`; assert absence with `r.Json("avatar", "")`.
 
+### Array length assertions (`JsonCount`)
+
+`JsonCount` ([`response.go`](../../response.go:184)) validates the element count of a
+JSON array resolved at a dot-notation path. It shares the same operator engine as
+`Json`, applied to the array's length:
+
+```go
+r.JsonCount("items")             // array exists and has at least one item
+r.JsonCount("items", 2)          // array has exactly 2 items
+r.JsonCount("items", ">", 2)     // more than 2 items
+r.JsonCount("items", "<=", 5)    // at most 5 items
+r.JsonCount("items", "~", 2, 5)  // length is between 2 and 5 (inclusive)
+```
+
+- With **no count argument**, it asserts the array is non-empty.
+- With a single **numeric** argument, it asserts exact length.
+- With an **operator** first argument, the operator is applied to the length.
+- A path that doesn't resolve, or resolves to a non-array, fails the test
+  (non-fatal `t.Errorf`).
+
 ### Status patterns (`Status`)
 
 `Status` accepts an `int` (exact) **or** a 3-char string pattern (`"2xx"`, `"4xx"`, ...),

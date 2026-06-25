@@ -170,6 +170,53 @@ func jsonValueToString(value interface{}) string {
 	}
 }
 
+// --- JSON Count Assertion ---
+
+// JsonCount validates the number of elements in a JSON array found at the given
+// dot-notation path. It accepts the same comparison operators as the other
+// assertions.
+//
+//	r.JsonCount("items")              // array exists and has at least one item
+//	r.JsonCount("items", 2)           // array has exactly 2 items
+//	r.JsonCount("items", ">", 2)      // array has more than 2 items
+//	r.JsonCount("items", "<=", 5)     // array has at most 5 items
+//	r.JsonCount("items", "~", 2, 5)   // array length is between 2 and 5
+func (r *Response) JsonCount(path string, args ...interface{}) *Response {
+	r.t.Helper()
+
+	var data interface{}
+	if err := json.Unmarshal(r.body, &data); err != nil {
+		r.t.Fatalf("tapetest: response is not valid JSON: %v\nbody: %s", err, string(r.body))
+		return r
+	}
+
+	value, exists := resolveJSONPath(data, path)
+	if !exists {
+		r.t.Errorf("\nJSON path %q not found in response\n  body: %s", path, string(r.body))
+		return r
+	}
+
+	arr, ok := value.([]interface{})
+	if !ok {
+		r.t.Errorf("\nJSON path %q is not an array\n  body: %s", path, string(r.body))
+		return r
+	}
+
+	// With no arguments: ensure the array has at least one item.
+	if len(args) == 0 {
+		if len(arr) == 0 {
+			r.t.Errorf("\nJSON path %q is an empty array\n  body: %s", path, string(r.body))
+		}
+		return r
+	}
+
+	actual := strconv.Itoa(len(arr))
+	if ok, msg := evalAssertion(actual, args...); !ok {
+		r.t.Errorf("\nJSON count %q assertion failed:\n  %s\n  actual count: %d", path, msg, len(arr))
+	}
+	return r
+}
+
 // --- Error Assertion ---
 
 // DocOrder controls how this request's example is prioritized in the generated
