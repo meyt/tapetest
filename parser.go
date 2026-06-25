@@ -146,25 +146,41 @@ func ParseAnnotations(dirPattern string) ([]HandlerAnnotation, error) {
 	return annotations, nil
 }
 
-// ParseAnnotationsFromDir parses all Go files in the specified directory.
-func ParseAnnotationsFromDir(dir string) ([]HandlerAnnotation, error) {
-	var annotations []HandlerAnnotation
-
-	entries, err := os.ReadDir(dir)
+// collectGoFiles walks dir recursively and returns the paths of all
+// non-test Go files found within it.
+func collectGoFiles(dir string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("tapetest: failed to read directory: %w", err)
 	}
+	return files, nil
+}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
+// ParseAnnotationsFromDir parses all non-test Go files in the specified
+// directory (recursively) for go-swag handler annotations.
+func ParseAnnotationsFromDir(dir string) ([]HandlerAnnotation, error) {
+	files, err := collectGoFiles(dir)
+	if err != nil {
+		return nil, err
+	}
 
-		fileAnnotations, err := parseFileAnnotation(filepath.Join(dir, name))
+	var annotations []HandlerAnnotation
+	for _, path := range files {
+		fileAnnotations, err := parseFileAnnotation(path)
 		if err != nil {
 			continue // skip files that can't be parsed
 		}
@@ -252,22 +268,14 @@ type securityPropertyPattern struct {
 //
 //	defs, err := ParseSecurityDefinitionsFromDir(".")
 func ParseSecurityDefinitionsFromDir(dir string) ([]SecurityDefinition, error) {
-	entries, err := os.ReadDir(dir)
+	files, err := collectGoFiles(dir)
 	if err != nil {
-		return nil, fmt.Errorf("tapetest: failed to read directory: %w", err)
+		return nil, err
 	}
 
 	var defs []SecurityDefinition
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-
-		fileDefs, err := parseFileSecurityDefinitions(filepath.Join(dir, name))
+	for _, path := range files {
+		fileDefs, err := parseFileSecurityDefinitions(path)
 		if err != nil {
 			continue
 		}

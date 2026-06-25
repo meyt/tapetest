@@ -1,12 +1,9 @@
 package tapetest
 
 import (
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -93,22 +90,14 @@ var primaryGeneralKeys = map[string]bool{
 //
 //	info, err := ParseGeneralAPIInfoFromDir(".")
 func ParseGeneralAPIInfoFromDir(dir string) (GeneralAPIInfo, error) {
-	entries, err := os.ReadDir(dir)
+	files, err := collectGoFiles(dir)
 	if err != nil {
-		return GeneralAPIInfo{}, fmt.Errorf("tapetest: failed to read directory: %w", err)
+		return GeneralAPIInfo{}, err
 	}
 
 	var info GeneralAPIInfo
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-
-		fileInfo, err := parseFileGeneralAPIInfo(filepath.Join(dir, name))
+	for _, path := range files {
+		fileInfo, err := parseFileGeneralAPIInfo(path)
 		if err != nil {
 			continue
 		}
