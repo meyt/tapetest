@@ -42,8 +42,13 @@ func TestMain(m *testing.M) {
 // setup creates a fresh Client for each test. All demo app routes are served
 // under the /api/v1 prefix, so the client's BaseUrl is set once here and every
 // subsequent request path is resolved relative to it.
+//
+// Server tags every recording with its service name and relative URL, so the
+// generated OpenAPI document emits a per-operation servers entry. Swagger UI's
+// "Try it out" then routes each request to /api/v1 regardless of where the
+// docs are hosted. See the "Multi-service suites" section of the README.
 func setup(t *testing.T) *Client {
-	return EchoClient(t, NewApp().Echo).BaseUrl("/api/v1")
+	return EchoClient(t, NewApp().Echo).BaseUrl("/api/v1").Server("Demo API", "/api/v1")
 }
 
 // ============================================================

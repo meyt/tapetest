@@ -26,6 +26,12 @@ type Client struct {
 	// Shared headers and cookies (persist across requests)
 	sharedHeaders map[string]string
 	sharedCookies map[string]string
+
+	// Per-service server metadata tagged onto every recording made by this
+	// client, so the generated OpenAPI document can emit per-operation
+	// servers and Swagger UI's "Try it out" routes each endpoint correctly.
+	serverName string
+	serverURL  string
 }
 
 // HttpClient creates a Client that makes real HTTP requests to the given base URL.
@@ -70,6 +76,37 @@ func HandlerClient(t *testing.T, handler http.Handler) *Client {
 //	c.BaseUrl("/api/v1")
 func (c *Client) BaseUrl(prefix string) *Client {
 	c.baseURL = prefix
+	return c
+}
+
+// Server tags every recording made by this client with the given service
+// name and URL, so the generated OpenAPI document emits a per-operation
+// servers entry. This lets Swagger UI's "Try it out" route each endpoint to
+// its own backend when a test suite covers several services deployed on
+// different URLs.
+//
+// The URL may be relative or absolute:
+//
+//   - Relative (e.g. "/api/v1"): Swagger UI resolves it against wherever the
+//     docs are hosted, so "Try it out" works without further configuration.
+//     The URL is also stripped from recorded request paths, making the OpenAPI
+//     path relative to the operation-level server.
+//   - Absolute (e.g. "https://user-api.example.com"): "Try it out" sends
+//     requests directly to that host. Keep BaseUrl for the path prefix, so the
+//     server is scheme+host only (e.g. "https://user-api.example.com" with
+//     BaseUrl("/api/v1")).
+//
+// Relative — portable across environments:
+//
+//	c := EchoClient(t, adminApp.Echo).BaseUrl("/api/v1").Server("Admin API", "/api/v1")
+//
+// Absolute — per-service hosts:
+//
+//	c := EchoClient(t, adminApp.Echo).BaseUrl("/api/v1").Server("Admin API", "https://admin-api.example.com")
+//	c := EchoClient(t, userApp.Echo).BaseUrl("/api/v1").Server("User API", "https://user-api.example.com")
+func (c *Client) Server(name, url string) *Client {
+	c.serverName = name
+	c.serverURL = url
 	return c
 }
 
@@ -493,7 +530,15 @@ func (c *Client) recordExchange(method, path string, body interface{}, cfg *requ
 		Body:    respBody,
 	}
 
-	Record(c.t.Name(), req, rec)
+	// Tag the recording with per-service server metadata (set via Server)
+	// so the OpenAPI generator can emit per-operation servers.
+	RecordExchange(RecordedExchange{
+		Test:      c.t.Name(),
+		Request:   req,
+		Response:  rec,
+		Server:    c.serverName,
+		ServerURL: c.serverURL,
+	})
 }
 
 // --- Shared Headers and Cookies ---

@@ -53,6 +53,19 @@ GenerateDocs(GenerateDocsOptions{
 
 Recorded request paths include the `BaseUrl` prefix. `@BasePath` (general API info) is
 **stripped** before matching so `/api/v1/users/1` aligns with a template `/users/:id`.
+
+### Per-operation servers (multi-service suites)
+
+A recording tagged via [`Server`](../../gotestrest.go:94) carries `serverUrl` metadata. The
+generator emits a per-operation `servers` array. Operation-level servers override the root
+`servers` for Swagger UI's *Try it out*, so each endpoint routes to its own backend.
+Untagged recordings keep the legacy single-global-server behaviour.
+
+- **Relative** URL (e.g. `/api/v1`): stripped from the recorded path so the OpenAPI path is
+  relative to the operation-level server; recordings sharing a relative path merge into one
+  operation with multiple `servers` entries.
+- **Absolute** URL (e.g. `https://user-api.example.com`): emitted verbatim and **not**
+  stripped — use `BaseUrl` for the path prefix so the server is scheme+host only.
 Matching is segment-by-segment ([`openapi.go:701`](../../openapi.go:701)):
 
 - `:param` and `{param}` segments are wildcards (captured into OpenAPI path params).

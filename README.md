@@ -16,6 +16,7 @@ Write tests in seconds, not minutes.
 - **Shared state** — persistent cookies and headers across requests
 - **Go-swag annotations** — enrich docs with titles, descriptions, tags, and security
 - **Example prioritization** — `DocOrder` controls which examples appear first, last, or are hidden in the generated docs
+- **Multi-service suites** — `Server` tags per-client recordings so the generated docs emit per-operation server URLs and Swagger UI's *Try it out* routes each endpoint correctly
 
 ## Installation
 
@@ -56,6 +57,48 @@ c := HandlerClient(t, myHandler)
 c.BaseUrl("/api/v1")
 c.Get("/users").Status(200)        // -> /api/v1/users
 ```
+
+## Multi-Service Suites (`Server`)
+
+When a test suite covers several independent services (e.g. an Admin API and a
+User API) deployed on different URLs, tag each client's recordings with
+`Server(name, url)`. The generated OpenAPI document then emits a per-operation
+`servers` array, and Swagger UI's *Try it out* routes each endpoint to its own
+backend instead of relying on a single global server.
+
+The URL may be **relative** or **absolute**:
+
+- **Relative** (e.g. `/api/v1`) — Swagger UI resolves it against wherever the
+  docs are hosted, so *Try it out* works without further configuration. The URL
+  is also stripped from recorded paths, so the OpenAPI path is relative to the
+  operation-level server.
+- **Absolute** (e.g. `https://user-api.example.com`) — *Try it out* sends
+  requests directly to that host. Use `BaseUrl` for the path prefix, so the
+  server is scheme+host only.
+
+Relative — portable across environments:
+
+```go
+admin := EchoClient(t, adminApp.Echo).BaseUrl("/api/v1").Server("Admin API", "/api/v1")
+admin.Get("/users").Status(200)
+
+user := EchoClient(t, userApp.Echo).BaseUrl("/api/v2").Server("User API", "/api/v2")
+user.Get("/users").Status(200)
+```
+
+Absolute — per-service hosts:
+
+```go
+admin := EchoClient(t, adminApp.Echo).BaseUrl("/api/v1").Server("Admin API", "https://admin-api.example.com")
+user  := EchoClient(t, userApp.Echo).BaseUrl("/api/v1").Server("User API", "https://user-api.example.com")
+```
+
+For a **relative** tagged URL, the recorded paths are stripped of it so the
+OpenAPI path is relative to the operation-level server; recordings that share a
+relative path (e.g. Admin `/api/v1/users` and User `/api/v2/users`) merge into a
+single `/users` operation with multiple `servers` entries. **Absolute** URLs are
+not stripped (they carry no path prefix to remove). Clients without `Server`
+keep their existing behaviour (no per-operation servers).
 
 ## HTTP Methods
 

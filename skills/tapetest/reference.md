@@ -19,9 +19,10 @@ Complete index of exported symbols. Source links point into the library root.
 
 | Method | Signature | Notes |
 |--------|-----------|-------|
-| [`BaseUrl`](../../gotestrest.go:71) | `func (c *Client) BaseUrl(prefix string) *Client` | Prefix prepended once to every path. Chainable. |
-| [`Header`](../../gotestrest.go:506) | `func (c *Client) Header(key string, value interface{})` | Shared header; `nil` removes it. |
-| [`Cookie`](../../gotestrest.go:519) | `func (c *Client) Cookie(key string, value interface{})` | Shared cookie; `nil` removes it. |
+| [`BaseUrl`](../../gotestrest.go:77) | `func (c *Client) BaseUrl(prefix string) *Client` | Prefix prepended once to every path. Chainable. |
+| [`Server`](../../gotestrest.go:94) | `func (c *Client) Server(name, url string) *Client` | Tags recordings with a service name + relative URL → per-operation `servers` in the OpenAPI doc. Chainable. |
+| [`Header`](../../gotestrest.go:538) | `func (c *Client) Header(key string, value interface{})` | Shared header; `nil` removes it. |
+| [`Cookie`](../../gotestrest.go:551) | `func (c *Client) Cookie(key string, value interface{})` | Shared cookie; `nil` removes it. |
 
 ### HTTP verbs
 

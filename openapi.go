@@ -55,6 +55,10 @@ type OpenAPIOperation struct {
 	RequestBody *OpenAPIRequestBody        `json:"requestBody,omitempty"`
 	Responses   map[string]OpenAPIResponse `json:"responses"`
 	Security    []map[string][]string      `json:"security,omitempty"`
+	// Servers are per-operation server overrides. When present they take
+	// precedence over the root-level servers for "Try it out", allowing each
+	// operation to route to its own (relative) service URL.
+	Servers []OpenAPIServer `json:"servers,omitempty"`
 }
 
 type OpenAPIParameter struct {
@@ -299,13 +303,32 @@ func GenerateOpenAPIFromRecordings(
 		method := strings.ToLower(ex.Request.Method)
 		testPath := ex.Request.Path
 
-		// Strip the shared base path prefix (e.g. "/api/v1") so that
-		// recorded paths match the relative annotation templates.
+		// Strip the shared global base path prefix (e.g. "/api/v1", from the
+		// go-swag @BasePath directive) so that recorded paths match the
+		// relative annotation templates.
 		if basePath != "" {
 			testPath = strings.TrimPrefix(testPath, basePath)
 			if testPath == "" {
 				testPath = "/"
 			}
+		}
+
+		// Strip a relative per-service server URL (the path prefix) so the
+		// OpenAPI path is relative to the operation-level server. This makes
+		// "/api/v1/users" + server "/api/v1" resolve to "/users" at the
+		// operation, and lets recordings from different services that share a
+		// relative path (e.g. Admin "/api/v1/users" and User "/api/v2/users")
+		// merge into a single "/users" operation with multiple servers.
+		//
+		// Absolute server URLs (e.g. "https://user-api.example.com") are left
+		// untouched: they carry no path prefix to remove and should be used
+		// together with BaseUrl for the path prefix.
+		if ex.ServerURL != "" && !isAbsoluteURL(ex.ServerURL) {
+			stripped := strings.TrimPrefix(testPath, ex.ServerURL)
+			if stripped == "" {
+				stripped = "/"
+			}
+			testPath = stripped
 		}
 
 		// Find matching annotation
@@ -457,6 +480,26 @@ func (doc *OpenAPIDocument) hasSecurityRequirements() bool {
 	return false
 }
 
+// groupServers collects the distinct per-service servers from a group's
+// recordings, preserving first-seen order. An exchange only contributes a
+// server when it carries a ServerURL. Recordings without server metadata are
+// ignored, so a mixed suite still works.
+func groupServers(recs []RecordedExchange) []OpenAPIServer {
+	var servers []OpenAPIServer
+	seen := make(map[string]bool)
+	for _, rec := range recs {
+		if rec.ServerURL == "" || seen[rec.ServerURL] {
+			continue
+		}
+		seen[rec.ServerURL] = true
+		servers = append(servers, OpenAPIServer{
+			URL:         rec.ServerURL,
+			Description: rec.Server,
+		})
+	}
+	return servers
+}
+
 // buildOperation creates an OpenAPI operation from an endpoint group.
 func buildOperation(g *endpointGroup) OpenAPIOperation {
 	op := OpenAPIOperation{
@@ -479,6 +522,13 @@ func buildOperation(g *endpointGroup) OpenAPIOperation {
 
 	// Generate operation ID
 	op.OperationID = generateOperationID(g.method, g.openAPIPath)
+
+	// Per-operation servers: when recordings carry service metadata
+	// (Server/ServerURL), emit a servers array so "Try it out" can route
+	// each endpoint to its own backend.
+	if servers := groupServers(g.recordings); len(servers) > 0 {
+		op.Servers = servers
+	}
 
 	// Add path parameters
 	for paramName := range g.pathParams {
@@ -845,6 +895,16 @@ func templateToOpenAPIPath(templatePath string) string {
 		return "/"
 	}
 	return "/" + strings.Join(parts, "/")
+}
+
+// isAbsoluteURL reports whether the given server URL is absolute (has a
+// scheme such as "http://" or "https://"). Absolute server URLs are emitted
+// verbatim as operation-level servers and are never used to strip a recorded
+// request path; only relative server URLs (e.g. "/api/v1") are treated as a
+// path prefix to strip.
+func isAbsoluteURL(serverURL string) bool {
+	lower := strings.ToLower(serverURL)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 }
 
 // splitPath splits a path into segments, ignoring leading/trailing slashes.

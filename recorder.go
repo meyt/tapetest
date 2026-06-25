@@ -41,6 +41,19 @@ type RecordedExchange struct {
 	// ExcludeFromDocs omits this exchange from the generated documentation
 	// entirely. Set by DocOrder(nil).
 	ExcludeFromDocs bool `json:"excludeFromDocs,omitempty"`
+	// Server is the optional logical name of the backend service this
+	// exchange was recorded against (e.g. "Admin API"). When set together
+	// with ServerURL, the generated OpenAPI document emits a per-operation
+	// servers entry so that Swagger UI's "Try it out" routes the request to
+	// the correct service.
+	Server string `json:"server,omitempty"`
+	// ServerURL is the URL of the service this exchange was recorded against.
+	// It may be relative (e.g. "/api/v1") or absolute
+	// (e.g. "https://user-api.example.com"). Relative URLs are resolved by
+	// Swagger UI against wherever the docs are hosted and are also stripped
+	// from recorded request paths; absolute URLs are emitted verbatim. Used
+	// together with Server to tag per-service recordings.
+	ServerURL string `json:"serverUrl,omitempty"`
 }
 
 // Recorder manages recording of test request/response exchanges.
@@ -85,7 +98,24 @@ func IsRecordingEnabled() bool {
 
 // Record captures a request/response exchange.
 // Called internally by the Client after each request.
+//
+// This is a convenience wrapper around RecordExchange for exchanges that do
+// not carry per-service server metadata. It is kept for backwards
+// compatibility.
 func Record(testName string, req RecordedRequest, resp RecordedResponse) {
+	RecordExchange(RecordedExchange{
+		Test:      testName,
+		Request:   req,
+		Response:  resp,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+// RecordExchange records a fully-formed exchange, including optional
+// per-service Server/ServerURL metadata. A missing Timestamp is filled in
+// automatically. It is the lowest-level recording entry point used by the
+// Client so it can tag each recording with its service.
+func RecordExchange(ex RecordedExchange) {
 	globalRecorder.mu.Lock()
 	defer globalRecorder.mu.Unlock()
 
@@ -93,13 +123,10 @@ func Record(testName string, req RecordedRequest, resp RecordedResponse) {
 		return
 	}
 
-	exchange := RecordedExchange{
-		Test:      testName,
-		Request:   req,
-		Response:  resp,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	if ex.Timestamp == "" {
+		ex.Timestamp = time.Now().UTC().Format(time.RFC3339)
 	}
-	globalRecorder.exchanges = append(globalRecorder.exchanges, exchange)
+	globalRecorder.exchanges = append(globalRecorder.exchanges, ex)
 }
 
 // SetLastExchangeDocOrder applies documentation-ordering metadata to the most
