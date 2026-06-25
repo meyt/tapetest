@@ -120,6 +120,8 @@ c.Post("/user", body, Header("Authorization", "Bearer token"))
 c.Get("/me", Bearer("my-token"))
 c.Get("/profile", Cookie("session_id", "abc123"))
 c.Post("/upload", Form{"firstName": "John"}, File("avatar", "./photo.png"))
+// Set a part's Content-Type when a validator rejects application/octet-stream:
+c.Post("/upload", nil, File("avatar", "./photo.png", "image/png"))
 c.Get("/slow", Timeout(5*time.Second))
 ```
 

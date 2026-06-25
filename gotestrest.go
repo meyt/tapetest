@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -393,13 +394,16 @@ func (c *Client) doMultipart(method, path string, body interface{}, cfg *request
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	// Add files
+	// Add files. CreateFormFile always sets Content-Type to
+	// application/octet-stream; when an explicit content type was requested
+	// (e.g. image/png for an image-upload validator) build the part manually
+	// via CreatePart so the per-part Content-Type reflects what was asked.
 	for _, f := range cfg.files {
 		file, err := os.Open(f.path)
 		if err != nil {
 			c.t.Fatalf("tapetest: failed to open file %s: %v", f.path, err)
 		}
-		part, err := writer.CreateFormFile(f.field, filepath.Base(f.path))
+		part, err := createFilePart(writer, f)
 		if err != nil {
 			file.Close()
 			c.t.Fatalf("tapetest: failed to create form file: %v", err)
@@ -441,6 +445,23 @@ func (c *Client) doMultipart(method, path string, body interface{}, cfg *request
 		return c.doHandler(method, path, bodyReader, cfg)
 	}
 	return c.doServer(method, path, bodyReader, cfg)
+}
+
+// createFilePart creates a multipart file part for f. When f.contentType is
+// empty it delegates to CreateFormFile (Content-Type: application/octet-stream,
+// preserving historical behaviour). When set, it builds the part headers
+// manually so the part carries the requested Content-Type — needed by servers
+// that validate the MIME type instead of sniffing the bytes (e.g. image
+// upload validators that reject application/octet-stream).
+func createFilePart(w *multipart.Writer, f fileUpload) (io.Writer, error) {
+	if f.contentType == "" {
+		return w.CreateFormFile(f.field, filepath.Base(f.path))
+	}
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition",
+		fmt.Sprintf(`form-data; name=%q; filename=%q`, f.field, filepath.Base(f.path)))
+	h.Set("Content-Type", f.contentType)
+	return w.CreatePart(h)
 }
 
 // --- Recording ---

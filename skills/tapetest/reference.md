@@ -47,7 +47,7 @@ All return `*Response`. `body` is marshaled to JSON unless it is a `Form` (or `n
 | [`Param`](../../options.go:66) | `type Param map[string]interface{}` | Substitutes `:key`/`{key}` in path. Implements `Option`. |
 | [`Query`](../../options.go:106) | `func Query(key, value string) Option` | Query parameter. |
 | [`Header`](../../options.go:115) | `func Header(key, value string) Option` | Per-request header. |
-| [`File`](../../options.go:124) | `func File(field, path string) Option` | Upload; switches request to multipart. |
+| [`File`](../../options.go:124) | `func File(field, path string, contentType ...string) Option` | Upload; switches request to multipart. Optional 3rd arg sets the part's `Content-Type` (default `application/octet-stream`) for MIME-validating servers. |
 | [`Timeout`](../../options.go:133) | `func Timeout(d time.Duration) Option` | `HttpClient` only. |
 | [`Bearer`](../../options.go:143) | `func Bearer(token string) Option` | Sets `Authorization: Bearer <token>`. |
 | [`Cookie`](../../options.go:152) | `func Cookie(key, value string) Option` | Per-request cookie. |

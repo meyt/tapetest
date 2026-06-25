@@ -40,6 +40,8 @@ Load this skill for any of these tasks:
 4. **Bodies are typed.** `Json` bodies are marshaled to JSON automatically; `Form` bodies
    become `application/x-www-form-urlencoded`; passing any `File(...)` option upgrades a
    request to `multipart/form-data`. You never build `io.Reader`/`Content-Type` manually.
+   A file part defaults to `application/octet-stream`; pass an explicit MIME type to
+   `File("avatar", "./photo.png", "image/png")` when a validator rejects octet-stream.
 5. **Recording is global and opt-in.** `EnableRecording(dir)` flips a process-wide flag.
    Each request is captured after it runs; `FlushRecording()` writes `recordings.json`.
 6. **Docs are generated in `TestMain` after `m.Run()`.** `GenerateDocs` reads recordings +

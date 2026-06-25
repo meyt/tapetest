@@ -8,8 +8,9 @@ import (
 )
 
 type fileUpload struct {
-	field string
-	path  string
+	field       string
+	path        string
+	contentType string // optional per-part Content-Type; empty => application/octet-stream (default)
 }
 
 type requestConfig struct {
@@ -120,10 +121,21 @@ func Header(key, value string) Option {
 
 // File adds a file upload to the request (uses multipart/form-data).
 //
+// By default the uploaded part is sent as application/octet-stream. Pass an
+// optional third argument to set the part's Content-Type, which servers that
+// validate the MIME type (e.g. image upload validators) rely on instead of
+// sniffing the bytes:
+//
 //	c.Post("/upload", nil, File("avatar", "./photo.png"))
-func File(field, path string) Option {
+//	c.Post("/upload", nil, File("avatar", "./photo.png", "image/png"))
+//	c.Post("/upload", nil, File("doc", "./report.pdf", "application/pdf"))
+func File(field, path string, contentType ...string) Option {
+	ct := ""
+	if len(contentType) > 0 {
+		ct = contentType[0]
+	}
 	return optionFunc(func(cfg *requestConfig) {
-		cfg.files = append(cfg.files, fileUpload{field, path})
+		cfg.files = append(cfg.files, fileUpload{field: field, path: path, contentType: ct})
 	})
 }
 
