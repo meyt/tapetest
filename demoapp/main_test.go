@@ -103,7 +103,7 @@ func TestCreateTodo(t *testing.T) {
 	c := setup(t)
 	r := c.Post("/todos", Json{
 		"title": "Buy milk",
-	})
+	}).DocOrder(0) // show as the first example in the docs
 	r.Status(201).
 		ReasonContains("Created").
 		Json("title", "Buy milk").
@@ -116,7 +116,7 @@ func TestCreateTodoWithDone(t *testing.T) {
 	r := c.Post("/todos", Json{
 		"title": "Already done",
 		"done":  true,
-	})
+	}).DocOrder(-1) // show as the last example in the docs
 	r.Status(201).
 		Json("title", "Already done").
 		Json("done", true)
@@ -126,7 +126,7 @@ func TestCreateTodoValidation(t *testing.T) {
 	c := setup(t)
 	r := c.Post("/todos", Json{
 		"title": "",
-	})
+	}).DocOrder(nil) // exclude this validation-error example from the docs
 	r.Status(400).
 		Json("error", "title is required")
 }
@@ -295,7 +295,7 @@ func TestCreateUser(t *testing.T) {
 		"username": "johndoe",
 		"email":    "john@example.com",
 		"role":     "user",
-	})
+	}).DocOrder(0) // show as the first example in the docs
 	r.Status(201).
 		Json("username", "johndoe").
 		Json("email", "john@example.com").
@@ -307,7 +307,7 @@ func TestCreateUserNoUsername(t *testing.T) {
 	c := setup(t)
 	r := c.Post("/users", Json{
 		"email": "john@example.com",
-	})
+	}).DocOrder(nil) // exclude this validation-error example from the docs
 	r.Status(400).
 		Json("error", "username is required")
 }

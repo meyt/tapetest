@@ -15,6 +15,7 @@ Write tests in seconds, not minutes.
 - **Rich request options** — query params, headers, cookies, file uploads, timeouts
 - **Shared state** — persistent cookies and headers across requests
 - **Go-swag annotations** — enrich docs with titles, descriptions, tags, and security
+- **Example prioritization** — `DocOrder` controls which examples appear first, last, or are hidden in the generated docs
 
 ## Installation
 
@@ -224,6 +225,33 @@ c.Header("Authorization", "Bearer token123")
 c.Get("/profile")
 c.Header("Authorization", nil)   // Remove shared header
 ```
+
+### Example Ordering (`DocOrder`)
+
+Control how examples appear in the generated Swagger UI by calling
+`DocOrder` on a response. It accepts `int` or `nil`:
+
+```go
+// shown as the FIRST example
+c.Get("/todos").DocOrder(0)
+
+// excluded from the docs entirely
+c.Get("/todos").DocOrder(nil)
+
+// shown as the LAST example
+c.Get("/todos").DocOrder(-1)
+```
+
+| Argument | Effect |
+|----------|--------|
+| `0`, `1`, `2`, ... | Pinned to the top, sorted ascending (`0` is first) |
+| *(not called)* | Natural recording order |
+| `-1`, `-2`, ... | Pinned to the bottom, sorted ascending (`-1` is last) |
+| `nil` | **Excluded** from the docs |
+
+`DocOrder` returns the `*Response`, so it chains with assertions. When every
+recording for an endpoint is excluded via `DocOrder(nil)`, the endpoint itself
+is omitted from the generated spec.
 
 ## Automatic Documentation
 

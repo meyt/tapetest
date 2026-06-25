@@ -34,6 +34,13 @@ type RecordedExchange struct {
 	Request   RecordedRequest  `json:"request"`
 	Response  RecordedResponse `json:"response"`
 	Timestamp string           `json:"timestamp"`
+	// DocOrder controls example ordering in the generated documentation.
+	// When nil the exchange keeps its default (recording) order.
+	// 0 (or positive) puts it first, negative values put it last.
+	DocOrder *int `json:"docOrder,omitempty"`
+	// ExcludeFromDocs omits this exchange from the generated documentation
+	// entirely. Set by DocOrder(nil).
+	ExcludeFromDocs bool `json:"excludeFromDocs,omitempty"`
 }
 
 // Recorder manages recording of test request/response exchanges.
@@ -93,6 +100,31 @@ func Record(testName string, req RecordedRequest, resp RecordedResponse) {
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
 	globalRecorder.exchanges = append(globalRecorder.exchanges, exchange)
+}
+
+// SetLastExchangeDocOrder applies documentation-ordering metadata to the most
+// recently recorded exchange. It is invoked by (*Response).DocOrder.
+//
+//	order == nil → the exchange is excluded from the generated docs
+//	order != nil → the pointed-to int controls example priority
+//	   (0/positive = first, negative = last)
+func SetLastExchangeDocOrder(order *int) {
+	globalRecorder.mu.Lock()
+	defer globalRecorder.mu.Unlock()
+
+	if !globalRecorder.enabled || len(globalRecorder.exchanges) == 0 {
+		return
+	}
+
+	last := &globalRecorder.exchanges[len(globalRecorder.exchanges)-1]
+	if order == nil {
+		last.ExcludeFromDocs = true
+		last.DocOrder = nil
+		return
+	}
+	o := *order
+	last.DocOrder = &o
+	last.ExcludeFromDocs = false
 }
 
 // FlushRecording writes all recorded exchanges to the .tapetest/ directory.

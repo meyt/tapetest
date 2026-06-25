@@ -148,6 +148,41 @@ accepts both `application/json` and `multipart/form-data` gets **multiple** medi
 entries (swagger-ui shows a selector). Recorded file uploads become
 `{ type: string, format: binary }` properties → file-chooser inputs in "Try it out".
 
+## Example ordering & exclusion (`DocOrder`)
+
+Each recorded exchange normally becomes an example. Call [`DocOrder`](../../response.go:181)
+on the `*Response` to control where the example lands — or hide it entirely. The argument is
+`interface{}` but in practice you pass an `int` literal or `nil`:
+
+```go
+c.Get("/todos").DocOrder(0)   // first example
+c.Get("/todos").DocOrder(nil) // excluded from the docs
+c.Get("/todos").DocOrder(-1)  // last example
+```
+
+| Argument | Tier | Result |
+|----------|------|--------|
+| `0`, `1`, `2`, ... | first (ascending) | `0` → `1` → `2` … ; `0` is the topmost example |
+| *(not called)* | middle | natural recording order |
+| `-1`, `-2`, ... | last (ascending) | more-negative precedes `-1`, so `-1` is the very last |
+| `nil` | — | **excluded** — the exchange is not emitted at all |
+
+Behaviour notes:
+
+- `DocOrder` is recorded on the **most recent exchange** via
+  [`SetLastExchangeDocOrder`](../../recorder.go:105). It applies per-recorded-request, so a
+  test that hits the same endpoint several times only orders its own example(s).
+- Sorting is **stable**: ties (same value, or all "natural") keep their original recording
+  order.
+- Endpoint-level effect: filtering runs at the endpoint-group level
+  ([`orderedRecordings`](../../openapi.go:751)). If **every** recording for an endpoint is
+  excluded via `DocOrder(nil)`, the endpoint is omitted from the spec entirely.
+- Ordering is applied consistently to **response** examples and to all **request-body**
+  media types (JSON, form, multipart), and the spec JSON itself preserves insertion order
+  ([`OpenAPIExamples`](../../openapi.go:88) marshals keys in order) so swagger-ui renders
+  them in the intended sequence.
+- `DocOrder` returns the `*Response` and is chainable with assertions.
+
 ## Swagger UI runtime config
 
 `BuildSwaggerConfig(map[string]string)` types string values (from flags/env) into the

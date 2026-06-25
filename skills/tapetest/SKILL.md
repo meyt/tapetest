@@ -44,6 +44,8 @@ Load this skill for any of these tasks:
    Each request is captured after it runs; `FlushRecording()` writes `recordings.json`.
 6. **Docs are generated in `TestMain` after `m.Run()`.** `GenerateDocs` reads recordings +
    source annotations and writes `openapi.json` + `index.html`.
+7. **Examples are ordered by recording order by default.** Call `.DocOrder(...)` on a
+   response to pin an example first/last or exclude it from the docs (see below).
 
 ## Canonical boilerplate
 
@@ -165,6 +167,28 @@ r.Status(201)
 id := r.JsonVal("id")            // float64 (JSON numbers decode as float64)
 c.Delete("/users/:id", Param{"id": int(id.(float64))}).Status(204)
 ```
+
+## Example ordering (`DocOrder`)
+
+Every recorded request becomes an example in the generated docs, in recording order by
+default. Call `.DocOrder(...)` on a response (before or after assertions — it chains and
+returns `*Response`) to control placement:
+
+```go
+c.Get("/todos").DocOrder(0)    // first example
+c.Get("/todos").DocOrder(nil)  // excluded from docs
+c.Get("/todos").DocOrder(-1)   // last example
+```
+
+- `0`/positive → pinned to the top, ascending (`0` is first).
+- *(not called)* → natural recording order (middle tier).
+- negative → pinned to the bottom; `-1` is the very last.
+- `nil` → the exchange is **excluded** from the docs. If *every* recording for an endpoint
+  is excluded, the endpoint is dropped from the spec entirely.
+
+Sorting is stable, and the generated `openapi.json` preserves insertion order so swagger-ui
+renders examples in the intended sequence. Details in
+[`openapi-docs.md`](openapi-docs.md#example-ordering--exclusion-docorder).
 
 ## Shared state across requests
 

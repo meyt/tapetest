@@ -69,6 +69,12 @@ All return `*Response` (chainable). Use `t.Helper()` internally so failures poin
 | [`Error`](../../response.go:178) | `func (r *Response) Error() *Response` | Request errored (network/timeout/panic). |
 | [`Stream`](../../response.go:240) | `func (r *Response) Stream(fn func(io.Reader) error) *Response` | Process body via callback. |
 
+### Documentation control
+
+| Method | Signature | Notes |
+|--------|-----------|-------|
+| [`DocOrder`](../../response.go:181) | `func (r *Response) DocOrder(order interface{}) *Response` | Orders/hides this example in generated docs. `int` (0/+=first, -=last), `nil`=excluded. Chainable. |
+
 ## `Response` value accessors
 
 Terminal (return the value, not `*Response`). Use these to drive multi-step tests.
@@ -104,6 +110,7 @@ Global singleton, mutex-guarded.
 | [`LoadRecordings`](../../recorder.go:131) | `func LoadRecordings(dir string) ([]RecordedExchange, error)` | Read recordings back. |
 | [`GetRecordings`](../../recorder.go:147) | `func GetRecordings() []RecordedExchange` | In-memory buffer (no flush). |
 | [`ClearRecordings`](../../recorder.go:154) | `func ClearRecordings() error` | Wipe buffer + delete file. |
+| [`SetLastExchangeDocOrder`](../../recorder.go:105) | `func SetLastExchangeDocOrder(order *int)` | Sets example ordering on the last recorded exchange. `nil`=exclude. Called by `DocOrder`. |
 
 Recorded shapes: [`RecordedRequest`](../../recorder.go:13), [`RecordedResponse`](../../recorder.go:25),
 [`RecordedExchange`](../../recorder.go:32).

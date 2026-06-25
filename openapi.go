@@ -72,13 +72,65 @@ type OpenAPIRequestBody struct {
 }
 
 type OpenAPIMediaType struct {
-	Schema   *OpenAPISchema            `json:"schema,omitempty"`
-	Examples map[string]OpenAPIExample `json:"examples,omitempty"`
+	Schema   *OpenAPISchema   `json:"schema,omitempty"`
+	Examples *OpenAPIExamples `json:"examples,omitempty"`
 }
 
 type OpenAPIExample struct {
 	Summary string      `json:"summary,omitempty"`
 	Value   interface{} `json:"value,omitempty"`
+}
+
+// OpenAPIExamples is an insertion-ordered collection of named OpenAPI examples.
+// It marshals to a JSON object that preserves insertion order, so documentation
+// tools that honor key order (such as swagger-ui) render the examples in the
+// intended sequence.
+type OpenAPIExamples struct {
+	keys []string
+	vals map[string]OpenAPIExample
+}
+
+// NewOpenAPIExamples creates an empty ordered example set.
+func NewOpenAPIExamples() *OpenAPIExamples {
+	return &OpenAPIExamples{vals: make(map[string]OpenAPIExample)}
+}
+
+// Set adds or replaces the named example, preserving the position of existing keys.
+func (e *OpenAPIExamples) Set(key string, ex OpenAPIExample) {
+	if e.vals == nil {
+		e.vals = make(map[string]OpenAPIExample)
+	}
+	if _, ok := e.vals[key]; !ok {
+		e.keys = append(e.keys, key)
+	}
+	e.vals[key] = ex
+}
+
+// Len returns the number of examples.
+func (e *OpenAPIExamples) Len() int { return len(e.keys) }
+
+// MarshalJSON renders the examples as an ordered JSON object.
+func (e OpenAPIExamples) MarshalJSON() ([]byte, error) {
+	var buf strings.Builder
+	buf.WriteByte('{')
+	for i, k := range e.keys {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		kb, err := json.Marshal(k)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(kb)
+		buf.WriteByte(':')
+		vb, err := json.Marshal(e.vals[k])
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(vb)
+	}
+	buf.WriteByte('}')
+	return []byte(buf.String()), nil
 }
 
 type OpenAPIResponse struct {
@@ -292,6 +344,15 @@ func GenerateOpenAPIFromRecordings(
 
 	// Build operations from groups
 	for _, g := range groups {
+		// Apply DocOrder filtering/sorting at the group level so that the
+		// primary recording (path/query params, request body schema) reflects
+		// the documented priority. Skip endpoints whose recordings are all
+		// excluded via DocOrder(nil).
+		ordered := orderedRecordings(g.recordings)
+		if len(ordered) == 0 {
+			continue
+		}
+		g.recordings = ordered
 		op := buildOperation(g)
 		doc.AddOperation(g.openAPIPath, g.method, op)
 	}
@@ -469,24 +530,24 @@ func buildOperation(g *endpointGroup) OpenAPIOperation {
 			Description: httpStatusText(mustAtoi(statusStr)),
 		}
 
-		// Build response content with examples
+		// Build response content with examples (ordered by DocOrder)
 		content := OpenAPIMediaType{
 			Schema: &OpenAPISchema{
 				Type: "object",
 			},
-			Examples: make(map[string]OpenAPIExample),
+			Examples: NewOpenAPIExamples(),
 		}
 
-		for _, rec := range recs {
+		for _, rec := range orderedRecordings(recs) {
 			if rec.Response.Body != nil {
-				content.Examples[rec.Test] = OpenAPIExample{
+				content.Examples.Set(rec.Test, OpenAPIExample{
 					Summary: formatExampleSummary(rec.Test, g.readableExamples),
 					Value:   rec.Response.Body,
-				}
+				})
 			}
 		}
 
-		if len(content.Examples) > 0 {
+		if content.Examples.Len() > 0 {
 			response.Content = map[string]OpenAPIMediaType{
 				"application/json": content,
 			}
@@ -559,9 +620,9 @@ func normalizeContentType(ct string) string {
 // buildJSONMediaType builds a JSON object media type from recorded bodies.
 func buildJSONMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIMediaType {
 	properties := make(map[string]OpenAPISchema)
-	examples := make(map[string]OpenAPIExample)
+	examples := NewOpenAPIExamples()
 
-	for _, rec := range recs {
+	for _, rec := range orderedRecordings(recs) {
 		bodyMap, ok := rec.Request.Body.(map[string]interface{})
 		if !ok {
 			continue
@@ -574,10 +635,10 @@ func buildJSONMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 				}
 			}
 		}
-		examples[rec.Test] = OpenAPIExample{
+		examples.Set(rec.Test, OpenAPIExample{
 			Summary: formatExampleSummary(rec.Test, readableExamples),
 			Value:   rec.Request.Body,
-		}
+		})
 	}
 
 	return OpenAPIMediaType{
@@ -594,9 +655,9 @@ func buildJSONMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 // with editable string fields.
 func buildFormMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIMediaType {
 	properties := make(map[string]OpenAPISchema)
-	examples := make(map[string]OpenAPIExample)
+	examples := NewOpenAPIExamples()
 
-	for _, rec := range recs {
+	for _, rec := range orderedRecordings(recs) {
 		bodyMap, ok := rec.Request.Body.(map[string]interface{})
 		if !ok {
 			continue
@@ -609,10 +670,10 @@ func buildFormMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 				}
 			}
 		}
-		examples[rec.Test] = OpenAPIExample{
+		examples.Set(rec.Test, OpenAPIExample{
 			Summary: formatExampleSummary(rec.Test, readableExamples),
 			Value:   rec.Request.Body,
-		}
+		})
 	}
 
 	return OpenAPIMediaType{
@@ -631,9 +692,9 @@ func buildFormMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 // chooser inputs in the "Try it out" panel.
 func buildMultipartMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIMediaType {
 	properties := make(map[string]OpenAPISchema)
-	examples := make(map[string]OpenAPIExample)
+	examples := NewOpenAPIExamples()
 
-	for _, rec := range recs {
+	for _, rec := range orderedRecordings(recs) {
 		if bodyMap, ok := rec.Request.Body.(map[string]interface{}); ok {
 			for k, v := range bodyMap {
 				if _, exists := properties[k]; !exists {
@@ -653,10 +714,10 @@ func buildMultipartMediaType(recs []RecordedExchange, readableExamples bool) Ope
 				Description: "file",
 			}
 		}
-		examples[rec.Test] = OpenAPIExample{
+		examples.Set(rec.Test, OpenAPIExample{
 			Summary: formatExampleSummary(rec.Test, readableExamples),
 			Value:   multipartExampleValue(rec),
-		}
+		})
 	}
 
 	return OpenAPIMediaType{
@@ -692,6 +753,57 @@ func sortedKeys(m map[string]OpenAPISchema) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// orderedRecordings returns the recordings that should be documented,
+// excluding any flagged via DocOrder(nil), and sorted by their DocOrder:
+//
+//   - 0 and positive values come first (ascending), so DocOrder(0) is first.
+//   - recordings without an explicit DocOrder keep their natural order in the middle.
+//   - negative values come last (ascending), so DocOrder(-1) is the final example.
+//
+// Recordings with the same priority preserve their original relative order.
+func orderedRecordings(recs []RecordedExchange) []RecordedExchange {
+	if len(recs) == 0 {
+		return recs
+	}
+	out := make([]RecordedExchange, 0, len(recs))
+	for _, r := range recs {
+		if r.ExcludeFromDocs {
+			continue
+		}
+		out = append(out, r)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return docOrderLess(out[i], out[j])
+	})
+	return out
+}
+
+// docOrderLess compares two recordings by their DocOrder priority.
+func docOrderLess(a, b RecordedExchange) bool {
+	ta, va := docOrderTier(a)
+	tb, vb := docOrderTier(b)
+	if ta != tb {
+		return ta < tb
+	}
+	return va < vb
+}
+
+// docOrderTier maps a recording's DocOrder into a (tier, value) sort key.
+//
+//	tier 0: explicit non-negative order (first examples), value = order
+//	tier 1: unset order (natural middle), value = 0
+//	tier 2: explicit negative order (last examples), value = order
+func docOrderTier(rec RecordedExchange) (tier int, value int) {
+	if rec.DocOrder == nil {
+		return 1, 0
+	}
+	v := *rec.DocOrder
+	if v >= 0 {
+		return 0, v
+	}
+	return 2, v
 }
 
 // --- Path Matching Helpers ---

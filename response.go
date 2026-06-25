@@ -172,6 +172,40 @@ func jsonValueToString(value interface{}) string {
 
 // --- Error Assertion ---
 
+// DocOrder controls how this request's example is prioritized in the generated
+// Swagger documentation. It accepts either an int or nil:
+//
+//	c.Get("/todos").DocOrder(0)   // show as the first example
+//	c.Get("/todos").DocOrder(nil) // do not include this example in the docs
+//	c.Get("/todos").DocOrder(-1)  // show as the last example
+//
+// When not called, the example keeps its natural recording order.
+// DocOrder returns the Response so it can be chained with assertions.
+func (r *Response) DocOrder(order interface{}) *Response {
+	switch v := order.(type) {
+	case nil:
+		SetLastExchangeDocOrder(nil)
+	case int:
+		SetLastExchangeDocOrder(&v)
+	case int8:
+		i := int(v)
+		SetLastExchangeDocOrder(&i)
+	case int16:
+		i := int(v)
+		SetLastExchangeDocOrder(&i)
+	case int32:
+		i := int(v)
+		SetLastExchangeDocOrder(&i)
+	case int64:
+		i := int(v)
+		SetLastExchangeDocOrder(&i)
+	case uint:
+		i := int(v)
+		SetLastExchangeDocOrder(&i)
+	}
+	return r
+}
+
 // Error asserts that the request resulted in a Go error (network error, timeout, panic, etc.).
 //
 //	r.Error()
