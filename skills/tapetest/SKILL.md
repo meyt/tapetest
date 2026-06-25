@@ -8,7 +8,7 @@ description: |
   exchanges, and auto-generates an OpenAPI v3 spec + Swagger UI from those tests.
   Triggers: importing `. "github.com/meyt/tapetest"`, calling `HandlerClient`/`HttpClient`/
   `EchoClient`/`GinClient`, `GenerateDocs`, `EnableRecording`, or go-swag annotation
-  comments (`@Title`, `@Path`, `@Security`, `@securityDefinitions.*`, `@BasePath`).
+  comments (`@Summary`, `@Router`, `@Security`, `@securityDefinitions.*`, `@BasePath`).
   Do NOT load for unrelated Go testing (stdlib `net/http/httptest` alone, testify, gomock).
 ---
 
@@ -25,7 +25,7 @@ Load this skill for any of these tasks:
 
 - Writing `*_test.go` that imports `github.com/meyt/tapetest` (note the dot-import idiom).
 - Generating OpenAPI v3 / Swagger UI docs from test recordings (`GenerateDocs`).
-- Authoring go-swag style annotations (`@Title`, `@Path`, `@Method`, `@Tag`, `@Security`,
+- Authoring go-swag style annotations (`@Summary`, `@Router`, `@Tags`, `@Security`,
   `@securityDefinitions.*`, `@title`/`@host`/`@BasePath`).
 - Debugging tapetest assertion failures, status-pattern matching, or JSON path resolution.
 

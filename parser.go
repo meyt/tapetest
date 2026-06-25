@@ -12,35 +12,53 @@ import (
 )
 
 // HandlerAnnotation represents parsed documentation from a Go handler function.
-// These are extracted from comment annotations above handler functions.
+// These are extracted from comment annotations above handler functions and use
+// go-swag-compatible directives:
 //
-//	// @Title Get a todo by ID
+//	// @Summary Get a todo by ID
 //	// @Description Returns a single todo item
-//	// @Tag todos
-//	// @Method GET
-//	// @Path /todos/:id
+//	// @Tags todos
+//	// @Router /todos/{id} [get]
 //	// @Security UserAuth
 //	func (a *App) getTodo(c echo.Context) error { ... }
+//
+// For backwards compatibility the legacy directives @Title, @Tag, @Method and
+// @Path are still recognised as aliases (see annotationAliases).
 type HandlerAnnotation struct {
-	Title       string   // @Title
-	Description string   // @Description
-	Tags        []string // @Tag (can be multiple)
-	Method      string   // @Method
-	Path        string   // @Path
+	Title       string   // @Summary (alias @Title)
+	Description string   // @Description (multiple lines are concatenated)
+	Tags        []string // @Tags (comma-separated; alias @Tag)
+	Method      string   // @Router [method] (alias @Method)
+	Path        string   // @Router path (alias @Path)
 	Security    []string // @Security (can be multiple)
 	FuncName    string   // Go function name
 	File        string   // Source file path
 }
 
-// annotationPatterns defines the supported annotation keys.
-var annotationPatterns = map[string]*regexp.Regexp{
-	"Title":       regexp.MustCompile(`^@Title\s+(.+)$`),
-	"Description": regexp.MustCompile(`^@Description\s+(.+)$`),
-	"Tag":         regexp.MustCompile(`^@Tag\s+(.+)$`),
-	"Method":      regexp.MustCompile(`^@Method\s+(.+)$`),
-	"Path":        regexp.MustCompile(`^@Path\s+(.+)$`),
-	"Security":    regexp.MustCompile(`^@Security\s+(.+)$`),
+// annotationRegexps defines the supported go-swag-compatible annotation keys,
+// matched case-insensitively (matching go-swag's behaviour).
+var annotationRegexps = struct {
+	summary     *regexp.Regexp
+	description *regexp.Regexp
+	tags        *regexp.Regexp
+	router      *regexp.Regexp
+	security    *regexp.Regexp
+}{
+	summary:     regexp.MustCompile(`(?i)^@Summary\s+(.+)$`),
+	description: regexp.MustCompile(`(?i)^@Description\s+(.+)$`),
+	tags:        regexp.MustCompile(`(?i)^@Tags?\s+(.+)$`),
+	router:      regexp.MustCompile(`(?i)^@Router\s+(\S+)\s+\[?([A-Za-z]+)\]?\s*$`),
+	security:    regexp.MustCompile(`(?i)^@Security\s+(.+)$`),
 }
+
+// annotationAliases are legacy tapetest directives that map onto the
+// go-swag-compatible fields. They are kept so existing code bases keep working.
+var (
+	aliasTitle  = regexp.MustCompile(`(?i)^@Title\s+(.+)$`)
+	aliasTag    = regexp.MustCompile(`(?i)^@Tag\s+(.+)$`)
+	aliasMethod = regexp.MustCompile(`(?i)^@Method\s+(.+)$`)
+	aliasPath   = regexp.MustCompile(`(?i)^@Path\s+(.+)$`)
+)
 
 // securityDefinitionStartPatterns matches a securityDefinitions marker and
 // returns the scheme type plus the name. The directive is matched
@@ -211,28 +229,13 @@ func parseFileAnnotations(file *ast.File, filename string) []HandlerAnnotation {
 
 		hasAnnotation := false
 		for _, comment := range fn.Doc.List {
-			text := strings.TrimPrefix(comment.Text, "// ")
-			text = strings.TrimSpace(text)
-
-			for key, pattern := range annotationPatterns {
-				matches := pattern.FindStringSubmatch(text)
-				if len(matches) == 2 {
+			for _, line := range strings.Split(comment.Text, "\n") {
+				text := strings.TrimSpace(strings.TrimPrefix(line, "//"))
+				if text == "" {
+					continue
+				}
+				if applyAnnotationLine(&ann, text) {
 					hasAnnotation = true
-					value := strings.TrimSpace(matches[1])
-					switch key {
-					case "Title":
-						ann.Title = value
-					case "Description":
-						ann.Description = value
-					case "Tag":
-						ann.Tags = append(ann.Tags, value)
-					case "Method":
-						ann.Method = strings.ToUpper(value)
-					case "Path":
-						ann.Path = value
-					case "Security":
-						ann.Security = append(ann.Security, value)
-					}
 				}
 			}
 		}
@@ -243,6 +246,65 @@ func parseFileAnnotations(file *ast.File, filename string) []HandlerAnnotation {
 	}
 
 	return annotations
+}
+
+// applyAnnotationLine applies a single (already trimmed) annotation line to the
+// given annotation, recognising the go-swag-compatible directives and the
+// legacy tapetest aliases. It reports whether the line matched a known
+// directive.
+func applyAnnotationLine(ann *HandlerAnnotation, text string) bool {
+	if m := annotationRegexps.summary.FindStringSubmatch(text); len(m) == 2 {
+		ann.Title = strings.TrimSpace(m[1])
+		return true
+	}
+	if m := annotationRegexps.description.FindStringSubmatch(text); len(m) == 2 {
+		val := strings.TrimSpace(m[1])
+		// Multiple @Description lines are concatenated, matching go-swag.
+		if ann.Description == "" {
+			ann.Description = val
+		} else {
+			ann.Description = ann.Description + "\n" + val
+		}
+		return true
+	}
+	if m := annotationRegexps.tags.FindStringSubmatch(text); len(m) == 2 {
+		// @Tags accepts a comma-separated list (go-swag). Each value is
+		// trimmed; empty entries are ignored.
+		for _, t := range strings.Split(m[1], ",") {
+			if t = strings.TrimSpace(t); t != "" {
+				ann.Tags = append(ann.Tags, t)
+			}
+		}
+		return true
+	}
+	if m := annotationRegexps.router.FindStringSubmatch(text); len(m) == 3 {
+		ann.Path = strings.TrimSpace(m[1])
+		ann.Method = strings.ToUpper(strings.TrimSpace(m[2]))
+		return true
+	}
+	if m := annotationRegexps.security.FindStringSubmatch(text); len(m) == 2 {
+		ann.Security = append(ann.Security, strings.TrimSpace(m[1]))
+		return true
+	}
+
+	// Legacy tapetest aliases (kept for backwards compatibility).
+	if m := aliasTitle.FindStringSubmatch(text); len(m) == 2 {
+		ann.Title = strings.TrimSpace(m[1])
+		return true
+	}
+	if m := aliasTag.FindStringSubmatch(text); len(m) == 2 {
+		ann.Tags = append(ann.Tags, strings.TrimSpace(m[1]))
+		return true
+	}
+	if m := aliasMethod.FindStringSubmatch(text); len(m) == 2 {
+		ann.Method = strings.ToUpper(strings.TrimSpace(m[1]))
+		return true
+	}
+	if m := aliasPath.FindStringSubmatch(text); len(m) == 2 {
+		ann.Path = strings.TrimSpace(m[1])
+		return true
+	}
+	return false
 }
 
 // parseFileAnnotation extracts annotations from a single Go source file.

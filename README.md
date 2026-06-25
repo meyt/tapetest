@@ -326,12 +326,11 @@ func TestMain(m *testing.M) {
 Add go-swag style comments to your handlers:
 
 ```go
-// @Title Create todo
+// @Summary Create todo
 // @Description Create a new todo item
-// @Tag todos
+// @Tags todos
 // @Security UserAuth
-// @Method POST
-// @Path /todos
+// @Router /todos [post]
 func (a *App) createTodo(c echo.Context) error { ... }
 ```
 

@@ -136,7 +136,7 @@ Constants: `DefaultSwaggerUICSS`, `DefaultSwaggerUIJS` (unpkg CDN URLs).
 
 | Function | Returns |
 |----------|---------|
-| [`ParseAnnotationsFromDir`](../../parser.go:150) | `[]HandlerAnnotation` — handler `@Title`/`@Path`/... blocks. |
+| [`ParseAnnotationsFromDir`](../../parser.go:150) | `[]HandlerAnnotation` — handler `@Summary`/`@Router`/... blocks. |
 | [`ParseSecurityDefinitionsFromDir`](../../parser.go:254) | `[]SecurityDefinition`. |
 | [`ParseSecurityDefinitionsFromFiles`](../../parser.go:282) | Same, from explicit files. |
 | [`ParseGeneralAPIInfoFromDir`](../../apimeta.go:95) | `GeneralAPIInfo` — top-level `@title`/`@host`/`@BasePath`/... |

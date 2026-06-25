@@ -166,22 +166,20 @@ func NewApp() *App {
 
 // --- Health ---
 
-// @Title Health check
+// @Summary Health check
 // @Description Returns the API health status
-// @Tag health
-// @Method GET
-// @Path /health
+// @Tags health
+// @Router /health [get]
 func (a *App) health(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // --- Todos ---
 
-// @Title List todos
+// @Summary List todos
 // @Description Returns all todo items
-// @Tag todos
-// @Method GET
-// @Path /todos
+// @Tags todos
+// @Router /todos [get]
 func (a *App) listTodos(c echo.Context) error {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
@@ -193,11 +191,10 @@ func (a *App) listTodos(c echo.Context) error {
 	return c.JSON(http.StatusOK, todos)
 }
 
-// @Title Create todo
+// @Summary Create todo
 // @Description Create a new todo item
-// @Tag todos
-// @Method POST
-// @Path /todos
+// @Tags todos
+// @Router /todos [post]
 func (a *App) createTodo(c echo.Context) error {
 	var todo Todo
 	if err := c.Bind(&todo); err != nil {
@@ -217,11 +214,10 @@ func (a *App) createTodo(c echo.Context) error {
 	return c.JSON(http.StatusCreated, &todo)
 }
 
-// @Title Get todo
+// @Summary Get todo
 // @Description Get a todo item by ID
-// @Tag todos
-// @Method GET
-// @Path /todos/:id
+// @Tags todos
+// @Router /todos/:id [get]
 func (a *App) getTodo(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -238,11 +234,10 @@ func (a *App) getTodo(c echo.Context) error {
 	return c.JSON(http.StatusOK, todo)
 }
 
-// @Title Update todo
+// @Summary Update todo
 // @Description Update a todo item by ID
-// @Tag todos
-// @Method PUT
-// @Path /todos/:id
+// @Tags todos
+// @Router /todos/:id [put]
 func (a *App) updateTodo(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -268,11 +263,10 @@ func (a *App) updateTodo(c echo.Context) error {
 	return c.JSON(http.StatusOK, todo)
 }
 
-// @Title Patch todo
+// @Summary Patch todo
 // @Description Partially update a todo item by ID
-// @Tag todos
-// @Method PATCH
-// @Path /todos/:id
+// @Tags todos
+// @Router /todos/:id [patch]
 func (a *App) patchTodo(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -300,11 +294,10 @@ func (a *App) patchTodo(c echo.Context) error {
 	return c.JSON(http.StatusOK, todo)
 }
 
-// @Title Delete todo
+// @Summary Delete todo
 // @Description Delete a todo item by ID
-// @Tag todos
-// @Method DELETE
-// @Path /todos/:id
+// @Tags todos
+// @Router /todos/:id [delete]
 func (a *App) deleteTodo(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -322,11 +315,10 @@ func (a *App) deleteTodo(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// @Title Search todos
+// @Summary Search todos
 // @Description Search todos by title
-// @Tag todos
-// @Method GET
-// @Path /todos/search
+// @Tags todos
+// @Router /todos/search [get]
 func (a *App) searchTodos(c echo.Context) error {
 	query := c.QueryParam("q")
 	if query == "" {
@@ -352,13 +344,12 @@ func (a *App) searchTodos(c echo.Context) error {
 
 // --- Users ---
 
-// @Title Create user
+// @Summary Create user
 // @Description Create a new user
-// @Tag users
+// @Tags users
 // @Security UserAuth
 // @Security AdminAuth
-// @Method POST
-// @Path /users
+// @Router /users [post]
 func (a *App) createUser(c echo.Context) error {
 	var user User
 	if err := c.Bind(&user); err != nil {
@@ -389,13 +380,12 @@ func (a *App) createUser(c echo.Context) error {
 	return c.JSON(http.StatusCreated, &user)
 }
 
-// @Title Get user
+// @Summary Get user
 // @Description Get a user by ID
-// @Tag users
+// @Tags users
 // @Security UserAuth
 // @Security AdminAuth
-// @Method GET
-// @Path /users/:id
+// @Router /users/:id [get]
 func (a *App) getUser(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -414,11 +404,10 @@ func (a *App) getUser(c echo.Context) error {
 
 // --- Plain-text user fields (for body assertion examples) ---
 
-// @Title Get user age
+// @Summary Get user age
 // @Description Returns a user's age as plain text
-// @Tag users
-// @Method GET
-// @Path /users/:id/age
+// @Tags users
+// @Router /users/:id/age [get]
 func (a *App) getUserAge(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -432,11 +421,10 @@ func (a *App) getUserAge(c echo.Context) error {
 	return c.String(http.StatusOK, "13")
 }
 
-// @Title Get user balance
+// @Summary Get user balance
 // @Description Returns a user's balance as plain text
-// @Tag users
-// @Method GET
-// @Path /users/:id/balance
+// @Tags users
+// @Router /users/:id/balance [get]
 func (a *App) getUserBalance(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -450,11 +438,10 @@ func (a *App) getUserBalance(c echo.Context) error {
 	return c.String(http.StatusOK, "131.50")
 }
 
-// @Title Get user created_at
+// @Summary Get user created_at
 // @Description Returns a user's creation timestamp (RFC3339) as plain text
-// @Tag users
-// @Method GET
-// @Path /users/:id/created_at
+// @Tags users
+// @Router /users/:id/created_at [get]
 func (a *App) getUserCreatedAt(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -469,11 +456,10 @@ func (a *App) getUserCreatedAt(c echo.Context) error {
 	return c.String(http.StatusOK, ts.Format(time.RFC3339))
 }
 
-// @Title Get user licenses
+// @Summary Get user licenses
 // @Description Returns a user's licenses as plain text
-// @Tag users
-// @Method GET
-// @Path /users/:id/licenses
+// @Tags users
+// @Router /users/:id/licenses [get]
 func (a *App) getUserLicenses(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -487,20 +473,18 @@ func (a *App) getUserLicenses(c echo.Context) error {
 	return c.String(http.StatusOK, "ielts,icdl,mba")
 }
 
-// @Title Health (plain text)
+// @Summary Health (plain text)
 // @Description Returns a plain-text health message
-// @Tag health
-// @Method GET
-// @Path /health-text
+// @Tags health
+// @Router /health-text [get]
 func (a *App) healthText(c echo.Context) error {
 	return c.String(http.StatusOK, "app is working")
 }
 
-// @Title Get user profile
+// @Summary Get user profile
 // @Description Get extended user profile with todo count
-// @Tag users
-// @Method GET
-// @Path /users/:id/profile
+// @Tags users
+// @Router /users/:id/profile [get]
 func (a *App) getUserProfile(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -532,11 +516,10 @@ func (a *App) getUserProfile(c echo.Context) error {
 	})
 }
 
-// @Title Patch user
+// @Summary Patch user
 // @Description Partially update a user by ID (supports JSON and multipart/form-data)
-// @Tag users
-// @Method PATCH
-// @Path /users/:id
+// @Tags users
+// @Router /users/:id [patch]
 func (a *App) patchUser(c echo.Context) error {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -622,12 +605,11 @@ func (a *App) patchUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
-// @Title Delete user
+// @Summary Delete user
 // @Description Delete a user by ID (admin only)
-// @Tag users
+// @Tags users
 // @Security AdminAuth
-// @Method DELETE
-// @Path /users/:id
+// @Router /users/:id [delete]
 func (a *App) deleteUser(c echo.Context) error {
 	// Check admin token
 	token := c.Request().Header.Get("Authorization")
@@ -662,11 +644,10 @@ func (a *App) deleteUser(c echo.Context) error {
 
 // --- Admin ---
 
-// @Title Admin login
+// @Summary Admin login
 // @Description Authenticate an admin with username and password (different from user login)
-// @Tag admin
-// @Method POST
-// @Path /admin/login
+// @Tags admin
+// @Router /admin/login [post]
 func (a *App) adminLogin(c echo.Context) error {
 	username := c.FormValue("username")
 	password := c.FormValue("password")
@@ -694,11 +675,10 @@ func (a *App) adminLogin(c echo.Context) error {
 
 // --- Cookie Examples ---
 
-// @Title Add cookie
+// @Summary Add cookie
 // @Description Demonstrates cookie handling - sets cookies in response
-// @Tag cookies
-// @Method GET
-// @Path /add-cookie
+// @Tags cookies
+// @Router /add-cookie [get]
 func (a *App) addCookie(c echo.Context) error {
 	// Set various cookies to demonstrate cookie support
 	c.SetCookie(&http.Cookie{
@@ -724,11 +704,10 @@ func (a *App) addCookie(c echo.Context) error {
 	})
 }
 
-// @Title Set cookies
+// @Summary Set cookies
 // @Description Demonstrates cookie handling with incrementing counter
-// @Tag cookies
-// @Method GET
-// @Path /set-cookies
+// @Tags cookies
+// @Router /set-cookies [get]
 func (a *App) setCookies(c echo.Context) error {
 	// Get existing cookies count
 	countStr := c.Request().Header.Get("Cookie")
@@ -758,11 +737,10 @@ func (a *App) setCookies(c echo.Context) error {
 
 // --- Auth ---
 
-// @Title Login
+// @Summary Login
 // @Description Authenticate a user with username and password
-// @Tag auth
-// @Method POST
-// @Path /login
+// @Tags auth
+// @Router /login [post]
 func (a *App) login(c echo.Context) error {
 	username := c.FormValue("username")
 	password := c.FormValue("password")

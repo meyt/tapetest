@@ -77,27 +77,31 @@ If no annotation matches, the recorded path is used verbatim (no path params, no
 
 ## Handler annotations
 
-Place above a handler function. Requires **both** `@Method` and `@Path` to be emitted.
+Place above a handler function. Uses **go-swag-compatible** directives; an
+operation is emitted only when `@Router` (or the legacy `@Method`/`@Path` pair)
+provides both a path and a verb.
 
 ```go
-// @Title Create user
+// @Summary Create user
 // @Description Create a new user
-// @Tag users
+// @Tags users
 // @Security UserAuth
 // @Security AdminAuth
-// @Method POST
-// @Path /users
+// @Router /users [post]
 func (a *App) createUser(c echo.Context) error { ... }
 ```
 
 | Key | Effect | Multiplicity |
 |-----|--------|--------------|
-| `@Title` | `operation.summary` | one |
-| `@Description` | `operation.description` | one |
-| `@Tag` | adds to `operation.tags` | many |
-| `@Method` | HTTP verb (uppercased) | one (required) |
-| `@Path` | template (`:id`/`{id}`) | one (required) |
+| `@Summary` | `operation.summary` | one |
+| `@Description` | `operation.description` (multiple lines concatenated) | many |
+| `@Tags` | adds to `operation.tags` (comma-separated list accepted) | many |
+| `@Router` | `path [httpMethod]` (sets path + verb) | one (required) |
 | `@Security` | adds a security requirement | many (OR-semantics: any scheme suffices) |
+
+> **Backwards compatibility:** the legacy directives `@Title`, `@Tag`,
+> `@Method` and `@Path` are still recognised as aliases, but the go-swag
+> syntax above is preferred.
 
 Parsed by [`ParseAnnotationsFromDir`](../../parser.go:150). Only non-`_test.go` files are scanned.
 
