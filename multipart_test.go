@@ -43,7 +43,7 @@ func TestFileDefaultContentTypeIsOctetStream(t *testing.T) {
 	})
 
 	c := HandlerClient(t, handler)
-	c.Post("/upload", nil, File("avatar", tmp))
+	c.Post("/upload", File("avatar", tmp))
 
 	if gotField != "avatar" {
 		t.Errorf("field: want avatar, got %q", gotField)
@@ -72,7 +72,7 @@ func TestFileCustomContentType(t *testing.T) {
 	})
 
 	c := HandlerClient(t, handler)
-	c.Post("/upload", nil, File("avatar", tmp, "image/png"))
+	c.Post("/upload", File("avatar", tmp, "image/png"))
 
 	if gotField != "avatar" || gotFile != "photo.png" {
 		t.Errorf("field/file = %q/%q", gotField, gotFile)

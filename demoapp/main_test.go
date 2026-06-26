@@ -417,7 +417,7 @@ func TestPatchUserMultipart(t *testing.T) {
 	}).Status(201)
 
 	// Update user with multipart form - name, username, and avatar file
-	r := c.Patch("/users/1", nil,
+	r := c.Patch("/users/1",
 		Form{
 			"username": "updatedmultipart",
 		},

@@ -30,26 +30,35 @@ All return `*Response`. `body` is marshaled to JSON unless it is a `Form` (or `n
 
 | Method | Signature |
 |--------|-----------|
-| [`Get`](../../tapetest.go:103) | `func (c *Client) Get(path string, opts ...Option) *Response` |
-| [`Post`](../../tapetest.go:108) | `func (c *Client) Post(path string, body interface{}, opts ...Option) *Response` |
-| [`Put`](../../tapetest.go:113) | `func (c *Client) Put(path string, body interface{}, opts ...Option) *Response` |
-| [`Patch`](../../tapetest.go:118) | `func (c *Client) Patch(path string, body interface{}, opts ...Option) *Response` |
-| [`Delete`](../../tapetest.go:123) | `func (c *Client) Delete(path string, opts ...Option) *Response` |
-| [`Head`](../../tapetest.go:128) | `func (c *Client) Head(path string, opts ...Option) *Response` |
-| [`Request`](../../tapetest.go:133) | `func (c *Client) Request(method, path string, opts ...Option) *Response` |
+| [`Get`](../../tapetest.go:141) | `func (c *Client) Get(path string, opts ...Option) *Response` |
+| [`Post`](../../tapetest.go:152) | `func (c *Client) Post(path string, opts ...Option) *Response` |
+| [`Put`](../../tapetest.go:159) | `func (c *Client) Put(path string, opts ...Option) *Response` |
+| [`Patch`](../../tapetest.go:166) | `func (c *Client) Patch(path string, opts ...Option) *Response` |
+| [`Delete`](../../tapetest.go:171) | `func (c *Client) Delete(path string, opts ...Option) *Response` |
+| [`Head`](../../tapetest.go:176) | `func (c *Client) Head(path string, opts ...Option) *Response` |
+| [`Request`](../../tapetest.go:181) | `func (c *Client) Request(method, path string, opts ...Option) *Response` |
+
+Every method takes only `path` (and `method` for `Request`) plus variadic
+options. The request body is set by passing a `Json` or `Form` value as an
+option — there is no dedicated body argument, so options may be supplied in any
+order:
+
+	c.Post("/item/:id", Param{"id": "1"}, Json{"name": "widget"})
+	c.Put("/todos/1", Json{"title": "Updated"}, Bearer("token"))
+	c.Post("/upload", Form{"name": "John"}, File("avatar", "./photo.png"))
 
 ## Body types & options (`options.go`)
 
 | Symbol | Kind | Notes |
 |--------|------|-------|
-| [`Json`](../../options.go:51) | `type Json map[string]interface{}` | Body arg → `application/json`. |
-| [`Form`](../../options.go:58) | `type Form map[string]interface{}` | Body arg → `application/x-www-form-urlencoded`; with `File` → multipart. Also implements `Option`. |
-| [`Param`](../../options.go:66) | `type Param map[string]interface{}` | Substitutes `:key`/`{key}` in path. Implements `Option`. |
-| [`Query`](../../options.go:106) | `func Query(key, value string) Option` | Query parameter. |
-| [`Header`](../../options.go:115) | `func Header(key, value string) Option` | Per-request header. |
-| [`File`](../../options.go:124) | `func File(field, path string, contentType ...string) Option` | Upload; switches request to multipart. Optional 3rd arg sets the part's `Content-Type` (default `application/octet-stream`) for MIME-validating servers. |
-| [`Timeout`](../../options.go:133) | `func Timeout(d time.Duration) Option` | `HttpClient` only. |
-| [`Bearer`](../../options.go:143) | `func Bearer(token string) Option` | Sets `Authorization: Bearer <token>`. |
+| [`Json`](../../options.go:62) | `type Json map[string]interface{}` | Body → `application/json`. Implements `Option`, so pass it as an option to set the body. |
+| [`Form`](../../options.go:67) | `type Form map[string]interface{}` | Body → `application/x-www-form-urlencoded`; with `File` → multipart. Implements `Option`. |
+| [`Param`](../../options.go:75) | `type Param map[string]interface{}` | Substitutes `:key`/`{key}` in path. Implements `Option`. |
+| [`Query`](../../options.go:119) | `func Query(key, value string) Option` | Query parameter. |
+| [`Header`](../../options.go:128) | `func Header(key, value string) Option` | Per-request header. |
+| [`File`](../../options.go:144) | `func File(field, path string, contentType ...string) Option` | Upload; switches request to multipart. Optional 3rd arg sets the part's `Content-Type` (default `application/octet-stream`) for MIME-validating servers. |
+| [`Timeout`](../../options.go:157) | `func Timeout(d time.Duration) Option` | `HttpClient` only. |
+| [`Bearer`](../../options.go:167) | `func Bearer(token string) Option` | Sets `Authorization: Bearer <token>`. |
 | [`Cookie`](../../options.go:152) | `func Cookie(key, value string) Option` | Per-request cookie. |
 | [`Option`](../../options.go:35) | `interface { apply(*requestConfig) }` | Implement to build custom options. |
 

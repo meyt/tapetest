@@ -2,7 +2,6 @@ package tapetest
 
 import (
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -14,13 +13,13 @@ type fileUpload struct {
 }
 
 type requestConfig struct {
-	headers  map[string]string
-	query    map[string]string
-	timeout  time.Duration
-	files    []fileUpload
-	params   map[string]string // path parameters like :id
-	formBody url.Values        // form-encoded body fields
-	cookies  map[string]string // cookies for the request
+	headers map[string]string
+	query   map[string]string
+	timeout time.Duration
+	files   []fileUpload
+	params  map[string]string // path parameters like :id
+	cookies map[string]string // cookies for the request
+	body    interface{}       // request body set via a Json/Form option
 }
 
 func defaultConfig() *requestConfig {
@@ -32,7 +31,7 @@ func defaultConfig() *requestConfig {
 }
 
 // Option configures a request. Pass options to Get, Post, Put, Patch, Delete, Head, or Request.
-// Built-in options: Query, Header, File, Timeout, Bearer, Param, Form.
+// Built-in options: Query, Header, File, Timeout, Bearer, Param, Json, Form.
 type Option interface {
 	apply(*requestConfig)
 }
@@ -45,17 +44,22 @@ func (f optionFunc) apply(cfg *requestConfig) {
 }
 
 // --- Body Types ---
-
-// Json is a JSON body type. Use as the body argument in Post, Put, Patch.
+//
+// Json and Form are the request body types. They implement Option, so the body
+// is configured just like any other option — alongside Query, Header, Param,
+// etc., in any order — with no dedicated body argument:
 //
 //	c.Post("/user", Json{"username": "john", "age": 12})
+//	c.Post("/user", Json{"username": "john"}, Bearer("token"))
+//	c.Post("/item/:id", Param{"id": "1"}, Json{"name": "widget"})
+
+// Json is a JSON body type. Pass it as an option to Post, Put, Patch (or any
+// verb) to send a JSON request body.
 type Json map[string]interface{}
 
 // Form is a form-encoded body type (application/x-www-form-urlencoded).
 // When used with File options, automatically switches to multipart/form-data.
-//
-//	c.Post("/user", Form{"username": "john", "age": 12})
-//	c.Post("/user", Form{"username": "john"}, File("avatar", "./avatar.png"))
+// Pass it as an option like Json.
 type Form map[string]interface{}
 
 // --- Path Params ---
@@ -87,16 +91,19 @@ func resolveParams(path string, params map[string]string) string {
 	return path
 }
 
-// --- Form handling ---
+// --- Body handling ---
 
-// Form implements Option to add form fields to multipart requests.
+// Json implements Option so it can set the request body (marshaled to JSON)
+// just like any other option.
+func (j Json) apply(cfg *requestConfig) {
+	cfg.body = j
+}
+
+// Form implements Option so it can set the request body. It is sent as
+// application/x-www-form-urlencoded, or as multipart/form-data fields when
+// paired with File options.
 func (f Form) apply(cfg *requestConfig) {
-	if cfg.formBody == nil {
-		cfg.formBody = make(url.Values)
-	}
-	for k, v := range f {
-		cfg.formBody.Set(k, fmt.Sprintf("%v", v))
-	}
+	cfg.body = f
 }
 
 // --- Functional Options ---
@@ -112,7 +119,7 @@ func Query(key, value string) Option {
 
 // Header adds a header to the request.
 //
-//	c.Post("/user", body, Header("Authorization", "Bearer token"))
+//	c.Post("/user", Json{"name": "john"}, Header("Authorization", "Bearer token"))
 func Header(key, value string) Option {
 	return optionFunc(func(cfg *requestConfig) {
 		cfg.headers[key] = value
@@ -126,9 +133,9 @@ func Header(key, value string) Option {
 // validate the MIME type (e.g. image upload validators) rely on instead of
 // sniffing the bytes:
 //
-//	c.Post("/upload", nil, File("avatar", "./photo.png"))
-//	c.Post("/upload", nil, File("avatar", "./photo.png", "image/png"))
-//	c.Post("/upload", nil, File("doc", "./report.pdf", "application/pdf"))
+//	c.Post("/upload", File("avatar", "./photo.png"))
+//	c.Post("/upload", File("avatar", "./photo.png", "image/png"))
+//	c.Post("/upload", File("doc", "./report.pdf", "application/pdf"))
 func File(field, path string, contentType ...string) Option {
 	ct := ""
 	if len(contentType) > 0 {

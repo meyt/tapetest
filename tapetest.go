@@ -142,19 +142,29 @@ func (c *Client) Get(path string, opts ...Option) *Response {
 	return c.do(http.MethodGet, path, nil, opts...)
 }
 
-// Post sends a POST request with the given body (marshaled to JSON automatically).
-func (c *Client) Post(path string, body interface{}, opts ...Option) *Response {
-	return c.do(http.MethodPost, path, body, opts...)
+// Post sends a POST request. The request body (when needed) is supplied as an
+// option — pass a Json or Form value just like any other option. There is no
+// dedicated body argument, so options can be given in any order:
+//
+//	c.Post("/todos", Json{"title": "Buy milk"})
+//	c.Post("/item/:id", Param{"id": "1"}, Json{"name": "widget"})
+//	c.Post("/upload", Form{"name": "John"}, File("avatar", "./photo.png"))
+func (c *Client) Post(path string, opts ...Option) *Response {
+	return c.do(http.MethodPost, path, nil, opts...)
 }
 
-// Put sends a PUT request with the given body.
-func (c *Client) Put(path string, body interface{}, opts ...Option) *Response {
-	return c.do(http.MethodPut, path, body, opts...)
+// Put sends a PUT request. The request body is supplied as an option (Json/Form).
+//
+//	c.Put("/todos/1", Json{"title": "Updated"})
+func (c *Client) Put(path string, opts ...Option) *Response {
+	return c.do(http.MethodPut, path, nil, opts...)
 }
 
-// Patch sends a PATCH request with the given body.
-func (c *Client) Patch(path string, body interface{}, opts ...Option) *Response {
-	return c.do(http.MethodPatch, path, body, opts...)
+// Patch sends a PATCH request. The request body is supplied as an option (Json/Form).
+//
+//	c.Patch("/todos/1", Json{"done": true})
+func (c *Client) Patch(path string, opts ...Option) *Response {
+	return c.do(http.MethodPatch, path, nil, opts...)
 }
 
 // Delete sends a DELETE request.
@@ -189,9 +199,20 @@ func (c *Client) do(method, path string, body interface{}, opts ...Option) *Resp
 		cfg.cookies[k] = v
 	}
 
-	// Apply request-specific options (can override shared)
+	// Apply request-specific options (can override shared). A Json/Form passed
+	// as an option sets cfg.body (see their apply methods). A nil option is
+	// skipped, so legacy callers can safely pass nil.
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		opt.apply(cfg)
+	}
+
+	// The request body is configured via a Json/Form option; prefer it over the
+	// (always-nil) positional body argument.
+	if cfg.body != nil {
+		body = cfg.body
 	}
 
 	// Resolve path parameters like :id, :name
@@ -429,13 +450,6 @@ func (c *Client) doMultipart(method, path string, body interface{}, cfg *request
 		}
 	}
 
-	// Add form fields from config (set via Form.apply as Option)
-	for k, vs := range cfg.formBody {
-		for _, v := range vs {
-			_ = writer.WriteField(k, v)
-		}
-	}
-
 	writer.Close()
 	cfg.headers["Content-Type"] = writer.FormDataContentType()
 
@@ -490,20 +504,16 @@ func (c *Client) recordExchange(method, path string, body interface{}, cfg *requ
 		}
 	}
 
-	// For multipart/form-data requests, the form fields and file uploads are
-	// not represented by the `body` argument (they live on cfg). Reconstruct
-	// a recordable body so the OpenAPI generator can render the multipart
+	// For multipart/form-data requests, the form fields come from a Form body
+	// (positional or option) while file uploads live on cfg. Reconstruct a
+	// recordable body so the OpenAPI generator can render the multipart
 	// request body and its file fields.
 	var files map[string]string
 	if ct := cfg.headers["Content-Type"]; strings.HasPrefix(ct, "multipart/form-data") {
-		formFields := make(map[string]interface{})
-		for k, vs := range cfg.formBody {
-			if len(vs) > 0 {
-				formFields[k] = vs[0]
-			}
-		}
-		// Merge any body that was passed as a Form
+		var formFields map[string]interface{}
+		// Reuse form fields from a Form body (positional or set via option)
 		if form, ok := body.(Form); ok {
+			formFields = make(map[string]interface{}, len(form))
 			for k, v := range form {
 				formFields[k] = v
 			}
