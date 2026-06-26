@@ -2,16 +2,16 @@
 
 Complete index of exported symbols. Source links point into the library root.
 
-## Constructors (`gotestrest.go`)
+## Constructors (`tapetest.go`)
 
 | Function | Signature | Notes |
 |----------|-----------|-------|
-| [`HttpClient`](../../gotestrest.go:34) | `func HttpClient(t *testing.T, baseURL string) *Client` | Real TCP requests via `http.Client`. |
-| [`HandlerClient`](../../gotestrest.go:50) | `func HandlerClient(t *testing.T, handler http.Handler) *Client` | Dispatches through `httptest`; catches panics. Fastest. |
-| [`EchoClient`](../../gotestrest.go:77) | `func EchoClient(t *testing.T, handler http.Handler) *Client` | Alias of `HandlerClient` (Echo v4/v5). |
-| [`Echo4Client`](../../gotestrest.go:83) | `func Echo4Client(t *testing.T, handler http.Handler) *Client` | Echo v4 alias. |
-| [`Echo5Client`](../../gotestrest.go:89) | `func Echo5Client(t *testing.T, handler http.Handler) *Client` | Echo v5 alias. |
-| [`GinClient`](../../gotestrest.go:95) | `func GinClient(t *testing.T, handler http.Handler) *Client` | Gin alias. |
+| [`HttpClient`](../../tapetest.go:34) | `func HttpClient(t *testing.T, baseURL string) *Client` | Real TCP requests via `http.Client`. |
+| [`HandlerClient`](../../tapetest.go:50) | `func HandlerClient(t *testing.T, handler http.Handler) *Client` | Dispatches through `httptest`; catches panics. Fastest. |
+| [`EchoClient`](../../tapetest.go:77) | `func EchoClient(t *testing.T, handler http.Handler) *Client` | Alias of `HandlerClient` (Echo v4/v5). |
+| [`Echo4Client`](../../tapetest.go:83) | `func Echo4Client(t *testing.T, handler http.Handler) *Client` | Echo v4 alias. |
+| [`Echo5Client`](../../tapetest.go:89) | `func Echo5Client(t *testing.T, handler http.Handler) *Client` | Echo v5 alias. |
+| [`GinClient`](../../tapetest.go:95) | `func GinClient(t *testing.T, handler http.Handler) *Client` | Gin alias. |
 
 ## `Client` methods
 
@@ -19,10 +19,10 @@ Complete index of exported symbols. Source links point into the library root.
 
 | Method | Signature | Notes |
 |--------|-----------|-------|
-| [`BaseUrl`](../../gotestrest.go:77) | `func (c *Client) BaseUrl(prefix string) *Client` | Prefix prepended once to every path. Chainable. |
-| [`Server`](../../gotestrest.go:94) | `func (c *Client) Server(name, url string) *Client` | Tags recordings with a service name + relative URL → per-operation `servers` in the OpenAPI doc. Chainable. |
-| [`Header`](../../gotestrest.go:538) | `func (c *Client) Header(key string, value interface{})` | Shared header; `nil` removes it. |
-| [`Cookie`](../../gotestrest.go:551) | `func (c *Client) Cookie(key string, value interface{})` | Shared cookie; `nil` removes it. |
+| [`BaseUrl`](../../tapetest.go:77) | `func (c *Client) BaseUrl(prefix string) *Client` | Prefix prepended once to every path. Chainable. |
+| [`Server`](../../tapetest.go:94) | `func (c *Client) Server(name, url string) *Client` | Tags recordings with a service name + relative URL → per-operation `servers` in the OpenAPI doc. Chainable. |
+| [`Header`](../../tapetest.go:538) | `func (c *Client) Header(key string, value interface{})` | Shared header; `nil` removes it. |
+| [`Cookie`](../../tapetest.go:551) | `func (c *Client) Cookie(key string, value interface{})` | Shared cookie; `nil` removes it. |
 
 ### HTTP verbs
 
@@ -30,13 +30,13 @@ All return `*Response`. `body` is marshaled to JSON unless it is a `Form` (or `n
 
 | Method | Signature |
 |--------|-----------|
-| [`Get`](../../gotestrest.go:103) | `func (c *Client) Get(path string, opts ...Option) *Response` |
-| [`Post`](../../gotestrest.go:108) | `func (c *Client) Post(path string, body interface{}, opts ...Option) *Response` |
-| [`Put`](../../gotestrest.go:113) | `func (c *Client) Put(path string, body interface{}, opts ...Option) *Response` |
-| [`Patch`](../../gotestrest.go:118) | `func (c *Client) Patch(path string, body interface{}, opts ...Option) *Response` |
-| [`Delete`](../../gotestrest.go:123) | `func (c *Client) Delete(path string, opts ...Option) *Response` |
-| [`Head`](../../gotestrest.go:128) | `func (c *Client) Head(path string, opts ...Option) *Response` |
-| [`Request`](../../gotestrest.go:133) | `func (c *Client) Request(method, path string, opts ...Option) *Response` |
+| [`Get`](../../tapetest.go:103) | `func (c *Client) Get(path string, opts ...Option) *Response` |
+| [`Post`](../../tapetest.go:108) | `func (c *Client) Post(path string, body interface{}, opts ...Option) *Response` |
+| [`Put`](../../tapetest.go:113) | `func (c *Client) Put(path string, body interface{}, opts ...Option) *Response` |
+| [`Patch`](../../tapetest.go:118) | `func (c *Client) Patch(path string, body interface{}, opts ...Option) *Response` |
+| [`Delete`](../../tapetest.go:123) | `func (c *Client) Delete(path string, opts ...Option) *Response` |
+| [`Head`](../../tapetest.go:128) | `func (c *Client) Head(path string, opts ...Option) *Response` |
+| [`Request`](../../tapetest.go:133) | `func (c *Client) Request(method, path string, opts ...Option) *Response` |
 
 ## Body types & options (`options.go`)
 

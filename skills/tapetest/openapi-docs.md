@@ -56,7 +56,7 @@ Recorded request paths include the `BaseUrl` prefix. `@BasePath` (general API in
 
 ### Per-operation servers (multi-service suites)
 
-A recording tagged via [`Server`](../../gotestrest.go:94) carries `serverUrl` metadata. The
+A recording tagged via [`Server`](../../tapetest.go:94) carries `serverUrl` metadata. The
 generator emits a per-operation `servers` array. Operation-level servers override the root
 `servers` for Swagger UI's *Try it out*, so each endpoint routes to its own backend.
 Untagged recordings keep the legacy single-global-server behaviour.
