@@ -1,8 +1,10 @@
-package tapetest
+package tests
 
 import (
 	"net/http"
 	"testing"
+
+	. "github.com/meyt/tapetest"
 )
 
 // TestClientServerTagsRecordings verifies that the Client.Server builder tags
@@ -250,8 +252,8 @@ func TestIsAbsoluteURL(t *testing.T) {
 		"ftp://example.com":     false, // only http(s) treated as absolute
 	}
 	for in, want := range cases {
-		if got := isAbsoluteURL(in); got != want {
-			t.Errorf("isAbsoluteURL(%q) = %v, want %v", in, got, want)
+		if got := IsAbsoluteURL(in); got != want {
+			t.Errorf("IsAbsoluteURL(%q) = %v, want %v", in, got, want)
 		}
 	}
 }

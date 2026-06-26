@@ -1,9 +1,11 @@
-package tapetest
+package tests
 
 import (
 	"io"
 	"net/http"
 	"testing"
+
+	. "github.com/meyt/tapetest"
 )
 
 // captureBodyHandler records the request body, Content-Type and resolved path

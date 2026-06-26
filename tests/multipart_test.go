@@ -1,4 +1,4 @@
-package tapetest
+package tests
 
 import (
 	"net/http"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	. "github.com/meyt/tapetest"
 )
 
 // readFilePart asserts the Content-Type of the first file part in a request.

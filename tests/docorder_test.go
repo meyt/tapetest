@@ -1,10 +1,12 @@
-package tapetest
+package tests
 
 import (
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+
+	. "github.com/meyt/tapetest"
 )
 
 func TestDocOrder(t *testing.T) {
@@ -28,7 +30,7 @@ func TestDocOrder(t *testing.T) {
 	// Recorded fourth, natural order (middle).
 	c.Get("/todos")
 
-	recs := orderedRecordings(GetRecordings())
+	recs := OrderedRecordings(GetRecordings())
 
 	if len(recs) != 3 {
 		t.Fatalf("expected 3 recordings after excluding 1, got %d", len(recs))

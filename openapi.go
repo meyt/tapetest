@@ -323,7 +323,7 @@ func GenerateOpenAPIFromRecordings(
 		// Absolute server URLs (e.g. "https://user-api.example.com") are left
 		// untouched: they carry no path prefix to remove and should be used
 		// together with BaseUrl for the path prefix.
-		if ex.ServerURL != "" && !isAbsoluteURL(ex.ServerURL) {
+		if ex.ServerURL != "" && !IsAbsoluteURL(ex.ServerURL) {
 			stripped := strings.TrimPrefix(testPath, ex.ServerURL)
 			if stripped == "" {
 				stripped = "/"
@@ -371,7 +371,7 @@ func GenerateOpenAPIFromRecordings(
 		// primary recording (path/query params, request body schema) reflects
 		// the documented priority. Skip endpoints whose recordings are all
 		// excluded via DocOrder(nil).
-		ordered := orderedRecordings(g.recordings)
+		ordered := OrderedRecordings(g.recordings)
 		if len(ordered) == 0 {
 			continue
 		}
@@ -588,7 +588,7 @@ func buildOperation(g *endpointGroup) OpenAPIOperation {
 			Examples: NewOpenAPIExamples(),
 		}
 
-		for _, rec := range orderedRecordings(recs) {
+		for _, rec := range OrderedRecordings(recs) {
 			if rec.Response.Body != nil {
 				content.Examples.Set(rec.Test, OpenAPIExample{
 					Summary: formatExampleSummary(rec.Test, g.readableExamples),
@@ -672,7 +672,7 @@ func buildJSONMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 	properties := make(map[string]OpenAPISchema)
 	examples := NewOpenAPIExamples()
 
-	for _, rec := range orderedRecordings(recs) {
+	for _, rec := range OrderedRecordings(recs) {
 		bodyMap, ok := rec.Request.Body.(map[string]interface{})
 		if !ok {
 			continue
@@ -707,7 +707,7 @@ func buildFormMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 	properties := make(map[string]OpenAPISchema)
 	examples := NewOpenAPIExamples()
 
-	for _, rec := range orderedRecordings(recs) {
+	for _, rec := range OrderedRecordings(recs) {
 		bodyMap, ok := rec.Request.Body.(map[string]interface{})
 		if !ok {
 			continue
@@ -744,7 +744,7 @@ func buildMultipartMediaType(recs []RecordedExchange, readableExamples bool) Ope
 	properties := make(map[string]OpenAPISchema)
 	examples := NewOpenAPIExamples()
 
-	for _, rec := range orderedRecordings(recs) {
+	for _, rec := range OrderedRecordings(recs) {
 		if bodyMap, ok := rec.Request.Body.(map[string]interface{}); ok {
 			for k, v := range bodyMap {
 				if _, exists := properties[k]; !exists {
@@ -805,7 +805,7 @@ func sortedKeys(m map[string]OpenAPISchema) []string {
 	return keys
 }
 
-// orderedRecordings returns the recordings that should be documented,
+// OrderedRecordings returns the recordings that should be documented,
 // excluding any flagged via DocOrder(nil), and sorted by their DocOrder:
 //
 //   - 0 and positive values come first (ascending), so DocOrder(0) is first.
@@ -813,7 +813,7 @@ func sortedKeys(m map[string]OpenAPISchema) []string {
 //   - negative values come last (ascending), so DocOrder(-1) is the final example.
 //
 // Recordings with the same priority preserve their original relative order.
-func orderedRecordings(recs []RecordedExchange) []RecordedExchange {
+func OrderedRecordings(recs []RecordedExchange) []RecordedExchange {
 	if len(recs) == 0 {
 		return recs
 	}
@@ -897,12 +897,12 @@ func templateToOpenAPIPath(templatePath string) string {
 	return "/" + strings.Join(parts, "/")
 }
 
-// isAbsoluteURL reports whether the given server URL is absolute (has a
+// IsAbsoluteURL reports whether the given server URL is absolute (has a
 // scheme such as "http://" or "https://"). Absolute server URLs are emitted
 // verbatim as operation-level servers and are never used to strip a recorded
 // request path; only relative server URLs (e.g. "/api/v1") are treated as a
 // path prefix to strip.
-func isAbsoluteURL(serverURL string) bool {
+func IsAbsoluteURL(serverURL string) bool {
 	lower := strings.ToLower(serverURL)
 	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 }
