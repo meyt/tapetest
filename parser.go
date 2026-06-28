@@ -237,6 +237,17 @@ func parseFileAnnotations(file *ast.File, filename string) []HandlerAnnotation {
 				if applyAnnotationLine(&ann, text) {
 					hasAnnotation = true
 				}
+				// When a new @Router is encountered and the current
+				// annotation is already complete, emit it and start a
+				// fresh one so that a single function can document
+				// multiple HTTP methods on the same path.
+				if ann.Method != "" && ann.Path != "" && isRouterLine(text) {
+					annotations = append(annotations, ann)
+					ann = HandlerAnnotation{
+						FuncName: fn.Name.Name,
+						File:     filename,
+					}
+				}
 			}
 		}
 
@@ -246,6 +257,15 @@ func parseFileAnnotations(file *ast.File, filename string) []HandlerAnnotation {
 	}
 
 	return annotations
+}
+
+// isRouterLine reports whether text is a @Router (or legacy @Method/@Path)
+// directive line. Used to detect when a new route boundary is reached while
+// parsing a single function's comment block.
+func isRouterLine(text string) bool {
+	return annotationRegexps.router.MatchString(text) ||
+		aliasMethod.MatchString(text) ||
+		aliasPath.MatchString(text)
 }
 
 // applyAnnotationLine applies a single (already trimmed) annotation line to the

@@ -239,6 +239,8 @@ func TestSearchTodos(t *testing.T) {
 	r2.Status(200).
 		Json("query", "buy").
 		Json("count", ">", 0)
+
+	c.Post("/todos/search", Query("must-not-documented", "in-the-get")).Status(400)
 }
 
 func TestSearchTodosNoQuery(t *testing.T) {

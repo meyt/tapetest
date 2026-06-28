@@ -130,6 +130,7 @@ func NewApp() *App {
 	api.PATCH("/todos/:id", app.patchTodo)
 	api.DELETE("/todos/:id", app.deleteTodo)
 	api.GET("/todos/search", app.searchTodos)
+	api.POST("/todos/search", app.searchTodos)
 
 	// Users
 	api.POST("/users", app.createUser)
@@ -319,6 +320,10 @@ func (a *App) deleteTodo(c echo.Context) error {
 // @Description Search todos by title
 // @Tags todos
 // @Router /todos/search [get]
+// @Summary Search todos (POST)
+// @Description Search todos by title using POST
+// @Tags todos
+// @Router /todos/search [post]
 func (a *App) searchTodos(c echo.Context) error {
 	query := c.QueryParam("q")
 	if query == "" {
