@@ -547,9 +547,14 @@ func buildOperation(g *endpointGroup) OpenAPIOperation {
 		return op.Parameters[i].Name < op.Parameters[j].Name
 	})
 
-	// Add query parameters from first recording
-	if len(g.recordings) > 0 {
-		for qKey := range g.recordings[0].Request.Query {
+	// Add query parameters from all recordings, deduplicating by name.
+	queryParams := make(map[string]bool)
+	for _, rec := range g.recordings {
+		for qKey := range rec.Request.Query {
+			if queryParams[qKey] {
+				continue
+			}
+			queryParams[qKey] = true
 			op.Parameters = append(op.Parameters, OpenAPIParameter{
 				Name:     qKey,
 				In:       "query",

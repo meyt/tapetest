@@ -231,6 +231,14 @@ func TestSearchTodos(t *testing.T) {
 	r.Status(200).
 		Json("query", "buy").
 		Json("count", ">", 0)
+
+	// Second request with two query params - the 'status' param should also
+	// appear in swagger-ui
+	c.Post("/todos", Json{"title": "Buy books", "done": true}).Status(201)
+	r2 := c.Get("/todos/search", Query("q", "buy"), Query("status", "pending"))
+	r2.Status(200).
+		Json("query", "buy").
+		Json("count", ">", 0)
 }
 
 func TestSearchTodosNoQuery(t *testing.T) {

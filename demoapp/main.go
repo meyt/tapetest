@@ -325,14 +325,23 @@ func (a *App) searchTodos(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "query parameter 'q' is required"})
 	}
 
+	status := c.QueryParam("status") // optional: "done" or "pending"
+
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
 	var results []*Todo
 	for _, t := range a.todos {
-		if strings.Contains(strings.ToLower(t.Title), strings.ToLower(query)) {
-			results = append(results, t)
+		if !strings.Contains(strings.ToLower(t.Title), strings.ToLower(query)) {
+			continue
 		}
+		if status == "done" && !t.Done {
+			continue
+		}
+		if status == "pending" && t.Done {
+			continue
+		}
+		results = append(results, t)
 	}
 
 	return c.JSON(http.StatusOK, &SearchResult{
