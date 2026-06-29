@@ -85,7 +85,7 @@ func TestHealth(t *testing.T) {
 func TestListTodos(t *testing.T) {
 	c := setup(t)
 	r := c.Get("/todos",
-		Header("X-Custom", "test-value"),
+		Header{"X-Custom": "test-value"},
 		Bearer("my-token"),
 	)
 	r.Status(200)
@@ -573,7 +573,7 @@ func TestAdminDeleteUser(t *testing.T) {
 	adminToken := dataMap["token"].(string)
 
 	// Delete user with admin token (should succeed)
-	r = c.Delete("/users/:id", Param{"id": int(userId)}, Header("Authorization", "Bearer "+adminToken))
+	r = c.Delete("/users/:id", Param{"id": int(userId)}, Header{"Authorization": "Bearer " + adminToken})
 	r.Status(204) // No Content
 
 	// Verify user is deleted
@@ -603,7 +603,7 @@ func TestAdminCannotDeleteWithUserToken(t *testing.T) {
 	userToken := dataMap["token"].(string)
 
 	// Try to delete user with regular user token (should fail - admin only)
-	r = c.Delete("/users/:id", Param{"id": int(userId)}, Header("Authorization", "Bearer "+userToken))
+	r = c.Delete("/users/:id", Param{"id": int(userId)}, Header{"Authorization": "Bearer " + userToken})
 	r.Status(403) // Forbidden - admin access required
 }
 

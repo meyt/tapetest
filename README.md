@@ -116,7 +116,7 @@ c.Request("OPTIONS", "/todos")
 
 ```go
 c.Get("/users", Query{"page": "1", "limit": 10})
-c.Post("/user", Json{"name": "john"}, Header("Authorization", "Bearer token"))
+c.Post("/user", Json{"name": "john"}, Header{"Authorization": "Bearer token"})
 c.Get("/me", Bearer("my-token"))
 c.Get("/profile", Cookie("session_id", "abc123"))
 c.Post("/upload", Form{"firstName": "John"}, File("avatar", "./photo.png"))
@@ -150,6 +150,16 @@ strings, integers, or named-typed strings (enums):
 
 ```go
 c.Get("/users", Query{"page": "1", "limit": 10})
+c.Get("/admin/address-parts", Query{"sort_by": SortName})
+```
+
+### Headers (`Header`)
+
+`Header` is a map type for setting per-request headers. Values are stringified:
+
+```go
+c.Post("/user", Json{"name": "john"}, Header{"Authorization": "Bearer token"})
+c.Get("/admin", Header{"X-Custom": "value", "Accept": "application/json"})
 ```
 
 ## Assertions

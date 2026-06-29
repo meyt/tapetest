@@ -130,15 +130,20 @@ func (q Query) apply(cfg *requestConfig) {
 	}
 }
 
-// --- Functional Options ---
+// --- Headers ---
 
-// Header adds a header to the request.
+// Header is a request-header type, mirroring Query/Param. Pass it as an option
+// to Get/Post/etc. to set per-request headers. Values are stringified via
+// fmt.Sprintf.
 //
-//	c.Post("/user", Json{"name": "john"}, Header("Authorization", "Bearer token"))
-func Header(key, value string) Option {
-	return optionFunc(func(cfg *requestConfig) {
-		cfg.headers[key] = value
-	})
+//	c.Post("/user", Json{"name": "john"}, Header{"Authorization": "Bearer token"})
+//	c.Get("/admin", Header{"X-Custom": "value", "Accept": "application/json"})
+type Header map[string]interface{}
+
+func (h Header) apply(cfg *requestConfig) {
+	for k, v := range h {
+		cfg.headers[k] = fmt.Sprintf("%v", v)
+	}
 }
 
 // File adds a file upload to the request (uses multipart/form-data).

@@ -55,11 +55,11 @@ order:
 | [`Form`](../../options.go:67) | `type Form map[string]interface{}` | Body → `application/x-www-form-urlencoded`; with `File` → multipart. Implements `Option`. |
 | [`Param`](../../options.go:75) | `type Param map[string]interface{}` | Substitutes `:key`/`{key}` in path. Values may be named-typed strings (enums). Implements `Option`. |
 | [`Query`](../../options.go:122) | `type Query map[string]interface{}` | Query parameters. Values may be named-typed strings (enums). Implements `Option`. |
-| [`Header`](../../options.go:128) | `func Header(key, value string) Option` | Per-request header. |
-| [`File`](../../options.go:144) | `func File(field, path string, contentType ...string) Option` | Upload; switches request to multipart. Optional 3rd arg sets the part's `Content-Type` (default `application/octet-stream`) for MIME-validating servers. |
-| [`Timeout`](../../options.go:157) | `func Timeout(d time.Duration) Option` | `HttpClient` only. |
-| [`Bearer`](../../options.go:167) | `func Bearer(token string) Option` | Sets `Authorization: Bearer <token>`. |
-| [`Cookie`](../../options.go:152) | `func Cookie(key, value string) Option` | Per-request cookie. |
+| [`Header`](../../options.go:135) | `type Header map[string]interface{}` | Per-request headers. Values are stringified. Implements `Option`. |
+| [`File`](../../options.go:152) | `func File(field, path string, contentType ...string) Option` | Upload; switches request to multipart. Optional 3rd arg sets the part's `Content-Type` (default `application/octet-stream`) for MIME-validating servers. |
+| [`Timeout`](../../options.go:165) | `func Timeout(d time.Duration) Option` | `HttpClient` only. |
+| [`Bearer`](../../options.go:175) | `func Bearer(token string) Option` | Sets `Authorization: Bearer <token>`. |
+| [`Cookie`](../../options.go:183) | `func Cookie(key, value string) Option` | Per-request cookie. |
 | [`Option`](../../options.go:35) | `interface { apply(*requestConfig) }` | Implement to build custom options. |
 
 ## Enum registration (`enum_register.go`)
