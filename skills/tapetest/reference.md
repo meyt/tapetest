@@ -66,8 +66,8 @@ order:
 
 | Function | Signature | Notes |
 |----------|-----------|-------|
-| [`RegisterEnum`](../../enum_register.go:40) | `func RegisterEnum[T ~string](values ...T)` | Register allowed values for a named string type. Infers the type via reflection. Calling twice for the same type replaces the previous entry. Safe for concurrent use. |
-| [`Enum`](../../enum_register.go:70) | `func Enum[T ~string](values ...T)` | Alias for `RegisterEnum`. |
+| [`RegisterEnum`](../../enum_register.go:40) | `func RegisterEnum[T ~string](values ...T) int` | Register allowed values for a named string type. Infers the type via reflection. Calling twice for the same type replaces the previous entry. Safe for concurrent use. |
+| [`Enum`](../../enum_register.go:70) | `func Enum[T ~string](values ...T) int` | Alias for `RegisterEnum`. |
 | [`LookupEnum`](../../enum_register.go:76) | `func LookupEnum(t reflect.Type) []string` | Returns the allowed enum values for the given `reflect.Type`, or nil if not registered. |
 | [`GetEnumCache`](../../enum_register.go:93) | `func GetEnumCache() map[string][]string` | Returns a copy of the current enum cache. Useful for debugging when enums aren't being detected. |
 

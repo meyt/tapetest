@@ -258,11 +258,11 @@ const (
     Active   StatusType = "active"
     Inactive StatusType = "inactive"
 )
+var _ := RegisterEnum(Pending,Active,Inactive)
 
+// or 
 func init() {
     tapetest.RegisterEnum(Pending, Active, Inactive)
-    // or equivalently:
-    tapetest.Enum(Pending, Active, Inactive)
 }
 ```
 

@@ -37,14 +37,14 @@ var (
 // RegisterEnum is safe for concurrent use and may be called from init() or
 // from inside a test function. Values declared inside a test function must
 // call RegisterEnum within that function (Go scope rules apply).
-func RegisterEnum[T ~string](values ...T) {
+func RegisterEnum[T ~string](values ...T) int {
 	if len(values) == 0 {
-		return
+		return 0
 	}
 	t := reflect.TypeOf(values[0])
 	if t.Name() == "" || t.PkgPath() == "" {
 		// Unnamed type — nothing to register under.
-		return
+		return 0
 	}
 	key := t.PkgPath() + "." + t.Name()
 	strs := make([]string, len(values))
@@ -57,6 +57,7 @@ func RegisterEnum[T ~string](values ...T) {
 		enumCache = make(map[string][]string)
 	}
 	enumCache[key] = strs
+	return len(strs)
 }
 
 // Enum is alias for RegisterEnum
@@ -66,9 +67,9 @@ func RegisterEnum[T ~string](values ...T) {
 //	    Pending  StatusType = "pending"
 //	    Active   StatusType = "active"
 //	)
-//	tapetest.Enum(Pending, Active)
-func Enum[T ~string](values ...T) {
-	RegisterEnum(values...)
+//	var _ := tapetest.Enum(Pending, Active)
+func Enum[T ~string](values ...T) int {
+	return RegisterEnum(values...)
 }
 
 // LookupEnum returns the allowed enum values for the given reflect.Type, or

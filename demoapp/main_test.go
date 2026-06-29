@@ -221,6 +221,16 @@ func TestDeleteTodoNotFound(t *testing.T) {
 // Todos - Search (Query params)
 // ============================================================
 
+type StatusType string
+
+const (
+	Pending  StatusType = "pending-status"
+	Active   StatusType = "active-status"
+	Inactive StatusType = "inactive-status"
+)
+
+var _ = Enum(Pending, Active, Inactive)
+
 func TestSearchTodos(t *testing.T) {
 	c := setup(t)
 	c.Post("/todos", Json{"title": "Buy groceries"}).Status(201)
@@ -236,14 +246,6 @@ func TestSearchTodos(t *testing.T) {
 	// appear in swagger-ui
 	c.Post("/todos", Json{"title": "Buy books", "done": true}).Status(201)
 
-	type StatusType string
-
-	const (
-		Pending  StatusType = "pending-status"
-		Active   StatusType = "active-status"
-		Inactive StatusType = "inactive-status"
-	)
-	Enum(Pending, Active, Inactive)
 	r2 := c.Get("/todos/search", Query{"q": "buy", "status": Active})
 	r2.Status(200).
 		Json("query", "buy").

@@ -326,7 +326,7 @@ const (
     Active   StatusType = "active"
     Inactive StatusType = "inactive"
 )
-Enum(Pending, Active, Inactive)
+var _ := tapetest.Enum(Pending, Active, Inactive)
 ```
 
 ### Using Enums
