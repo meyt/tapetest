@@ -300,7 +300,7 @@ func (c *Client) doHandler(method, path string, body io.Reader, cfg *requestConf
 
 	q := req.URL.Query()
 	for k, v := range cfg.query {
-		q.Set(k, v)
+		q.Set(k, fmt.Sprintf("%v", v))
 	}
 	req.URL.RawQuery = q.Encode()
 
@@ -347,7 +347,7 @@ func (c *Client) doServer(method, path string, body io.Reader, cfg *requestConfi
 	if len(cfg.query) > 0 {
 		q := url.Values{}
 		for k, v := range cfg.query {
-			q.Set(k, v)
+			q.Set(k, fmt.Sprintf("%v", v))
 		}
 		fullURL += "?" + q.Encode()
 	}
@@ -529,6 +529,32 @@ func (c *Client) recordExchange(method, path string, body interface{}, cfg *requ
 		}
 	}
 
+	// Lift enum metadata by reflecting on named-typed string values. When a
+	// body field, query param, or path param carries a value of a named
+	// string type (e.g. GenderType), consult the enum registry (populated via
+	// RegisterEnum) for that type's allowed values, and record them so the
+	// OpenAPI generator can emit `enum` constraints. Values are left
+	// untouched — typed strings marshal as their bare value over the wire.
+	bodyEnums := scanMapEnums(reqBody)
+
+	// Build the query map for the recording. Values are stringified so the
+	// recording stays JSON-serializable; enum metadata is captured above.
+	queryForRecord := make(map[string]string, len(cfg.query))
+	queryEnums := make(map[string][]string)
+	for k, v := range cfg.query {
+		queryForRecord[k] = fmt.Sprintf("%v", v)
+		if allowed := lookupEnumValue(v); len(allowed) > 0 {
+			queryEnums[k] = allowed
+		}
+	}
+
+	paramEnums := make(map[string][]string)
+	for k, v := range cfg.params {
+		if allowed := lookupEnumValue(v); len(allowed) > 0 {
+			paramEnums[k] = allowed
+		}
+	}
+
 	// Parse response body
 	var respBody interface{}
 	if len(resp.body) > 0 {
@@ -548,12 +574,15 @@ func (c *Client) recordExchange(method, path string, body interface{}, cfg *requ
 	}
 
 	req := RecordedRequest{
-		Method:  method,
-		Path:    path,
-		Headers: reqHeaders,
-		Body:    reqBody,
-		Query:   cfg.query,
-		Files:   files,
+		Method:     method,
+		Path:       path,
+		Headers:    reqHeaders,
+		Body:       reqBody,
+		Query:      queryForRecord,
+		Files:      files,
+		QueryEnums: queryEnums,
+		ParamEnums: paramEnums,
+		BodyEnums:  bodyEnums,
 	}
 	rec := RecordedResponse{
 		Status:  resp.code,

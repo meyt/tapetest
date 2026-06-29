@@ -14,18 +14,18 @@ type fileUpload struct {
 
 type requestConfig struct {
 	headers map[string]string
-	query   map[string]string
+	query   map[string]interface{} // query params; values may be named-typed strings (enums)
 	timeout time.Duration
 	files   []fileUpload
-	params  map[string]string // path parameters like :id
-	cookies map[string]string // cookies for the request
-	body    interface{}       // request body set via a Json/Form option
+	params  map[string]interface{} // path params; values may be named-typed strings (enums)
+	cookies map[string]string
+	body    interface{} // request body set via a Json/Form option
 }
 
 func defaultConfig() *requestConfig {
 	return &requestConfig{
 		headers: make(map[string]string),
-		query:   make(map[string]string),
+		query:   make(map[string]interface{}),
 		cookies: make(map[string]string),
 	}
 }
@@ -49,9 +49,9 @@ func (f optionFunc) apply(cfg *requestConfig) {
 // is configured just like any other option — alongside Query, Header, Param,
 // etc., in any order — with no dedicated body argument:
 //
-//	c.Post("/user", Json{"username": "john", "age": 12})
-//	c.Post("/user", Json{"username": "john"}, Bearer("token"))
-//	c.Post("/item/:id", Param{"id": "1"}, Json{"name": "widget"})
+//      c.Post("/user", Json{"username": "john", "age": 12})
+//      c.Post("/user", Json{"username": "john"}, Bearer("token"))
+//      c.Post("/item/:id", Param{"id": "1"}, Json{"name": "widget"})
 
 // Json is a JSON body type. Pass it as an option to Post, Put, Patch (or any
 // verb) to send a JSON request body.
@@ -72,21 +72,24 @@ type Param map[string]interface{}
 
 func (p Param) apply(cfg *requestConfig) {
 	if cfg.params == nil {
-		cfg.params = make(map[string]string)
+		cfg.params = make(map[string]interface{})
 	}
 	for k, v := range p {
-		cfg.params[k] = fmt.Sprintf("%v", v)
+		cfg.params[k] = v
 	}
 }
 
-// resolveParams replaces :param and {param} placeholders in the path with actual values.
-func resolveParams(path string, params map[string]string) string {
+// resolveParams replaces :param and {param} placeholders in the path with
+// actual values. Values are stringified via fmt.Sprintf("%v", v) so named
+// string types (e.g. GenderType) are converted to their underlying value.
+func resolveParams(path string, params map[string]interface{}) string {
 	if params == nil {
 		return path
 	}
 	for k, v := range params {
-		path = strings.ReplaceAll(path, ":"+k, v)
-		path = strings.ReplaceAll(path, "{"+k+"}", v)
+		s := fmt.Sprintf("%v", v)
+		path = strings.ReplaceAll(path, ":"+k, s)
+		path = strings.ReplaceAll(path, "{"+k+"}", s)
 	}
 	return path
 }
@@ -106,16 +109,28 @@ func (f Form) apply(cfg *requestConfig) {
 	cfg.body = f
 }
 
-// --- Functional Options ---
+// --- Query ---
 
-// Query adds a query parameter to the request.
+// Query is a query-parameter body type, mirroring Form/Json/Param. Pass it as
+// an option to Get/Post/etc. to set query parameters. Values may be plain
+// strings, integers, or named-typed strings (enums); the recorder reflects on
+// named types and consults the enum registry (see RegisterEnum) to emit
+// `enum` constraints in the generated OpenAPI document.
 //
-//	c.Get("/users", Query("page", "1"), Query("limit", "10"))
-func Query(key, value string) Option {
-	return optionFunc(func(cfg *requestConfig) {
-		cfg.query[key] = value
-	})
+//	c.Get("/users", Query{"page": "1", "limit": 10})
+//	c.Get("/admin/address-parts", Query{"sort_by": SortName})
+type Query map[string]interface{}
+
+func (q Query) apply(cfg *requestConfig) {
+	if cfg.query == nil {
+		cfg.query = make(map[string]interface{})
+	}
+	for k, v := range q {
+		cfg.query[k] = v
+	}
 }
+
+// --- Functional Options ---
 
 // Header adds a header to the request.
 //

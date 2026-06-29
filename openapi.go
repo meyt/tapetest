@@ -149,6 +149,10 @@ type OpenAPISchema struct {
 	Items       *OpenAPISchema           `json:"items,omitempty"`
 	Required    []string                 `json:"required,omitempty"`
 	Description string                   `json:"description,omitempty"`
+	// Enum constrains a string field or parameter to one of the listed values.
+	// Populated from QueryEnum / ParamEnum / FormEnum / JsonEnum declarations
+	// so that Swagger UI's "Try it out" panel renders a dropdown for the field.
+	Enum []interface{} `json:"enum,omitempty"`
 }
 
 type OpenAPIComponents struct {
@@ -532,14 +536,18 @@ func buildOperation(g *endpointGroup) OpenAPIOperation {
 
 	// Add path parameters
 	for paramName := range g.pathParams {
+		schema := &OpenAPISchema{
+			Type:        "string",
+			Description: "string",
+		}
+		if allowed := findParamEnum(g.recordings, paramName); len(allowed) > 0 {
+			schema.Enum = toEnumSlice(allowed)
+		}
 		op.Parameters = append(op.Parameters, OpenAPIParameter{
 			Name:     paramName,
 			In:       "path",
 			Required: true,
-			Schema: &OpenAPISchema{
-				Type:        "string",
-				Description: "string",
-			},
+			Schema:   schema,
 		})
 	}
 	// Sort parameters for consistent output
@@ -555,14 +563,18 @@ func buildOperation(g *endpointGroup) OpenAPIOperation {
 				continue
 			}
 			queryParams[qKey] = true
+			schema := &OpenAPISchema{
+				Type:        "string",
+				Description: "string",
+			}
+			if allowed := findQueryEnum(g.recordings, qKey); len(allowed) > 0 {
+				schema.Enum = toEnumSlice(allowed)
+			}
 			op.Parameters = append(op.Parameters, OpenAPIParameter{
 				Name:     qKey,
 				In:       "query",
 				Required: false,
-				Schema: &OpenAPISchema{
-					Type:        "string",
-					Description: "string",
-				},
+				Schema:   schema,
 			})
 		}
 	}
@@ -684,10 +696,14 @@ func buildJSONMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 		}
 		for k, v := range bodyMap {
 			if _, exists := properties[k]; !exists {
-				properties[k] = OpenAPISchema{
+				s := OpenAPISchema{
 					Type:        guessSchemaTypeFromValue(v),
 					Description: guessSchemaTypeFromValue(v),
 				}
+				if allowed := findBodyEnum(recs, k); len(allowed) > 0 {
+					s.Enum = toEnumSlice(allowed)
+				}
+				properties[k] = s
 			}
 		}
 		examples.Set(rec.Test, OpenAPIExample{
@@ -719,10 +735,14 @@ func buildFormMediaType(recs []RecordedExchange, readableExamples bool) OpenAPIM
 		}
 		for k, v := range bodyMap {
 			if _, exists := properties[k]; !exists {
-				properties[k] = OpenAPISchema{
+				s := OpenAPISchema{
 					Type:        guessSchemaTypeFromValue(v),
 					Description: guessSchemaTypeFromValue(v),
 				}
+				if allowed := findBodyEnum(recs, k); len(allowed) > 0 {
+					s.Enum = toEnumSlice(allowed)
+				}
+				properties[k] = s
 			}
 		}
 		examples.Set(rec.Test, OpenAPIExample{
@@ -753,10 +773,14 @@ func buildMultipartMediaType(recs []RecordedExchange, readableExamples bool) Ope
 		if bodyMap, ok := rec.Request.Body.(map[string]interface{}); ok {
 			for k, v := range bodyMap {
 				if _, exists := properties[k]; !exists {
-					properties[k] = OpenAPISchema{
+					s := OpenAPISchema{
 						Type:        guessSchemaTypeFromValue(v),
 						Description: guessSchemaTypeFromValue(v),
 					}
+					if allowed := findBodyEnum(recs, k); len(allowed) > 0 {
+						s.Enum = toEnumSlice(allowed)
+					}
+					properties[k] = s
 				}
 			}
 		}
@@ -808,6 +832,52 @@ func sortedKeys(m map[string]OpenAPISchema) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// findQueryEnum returns the allowed enum values declared for the given query
+// parameter across any recording in the group. The first non-empty declaration
+// wins. Returns nil when no recording declared an enum for that parameter.
+func findQueryEnum(recs []RecordedExchange, key string) []string {
+	for _, rec := range recs {
+		if allowed, ok := rec.Request.QueryEnums[key]; ok && len(allowed) > 0 {
+			return allowed
+		}
+	}
+	return nil
+}
+
+// findParamEnum returns the allowed enum values declared for the given path
+// parameter across any recording in the group. The first non-empty declaration
+// wins. Returns nil when no recording declared an enum for that parameter.
+func findParamEnum(recs []RecordedExchange, key string) []string {
+	for _, rec := range recs {
+		if allowed, ok := rec.Request.ParamEnums[key]; ok && len(allowed) > 0 {
+			return allowed
+		}
+	}
+	return nil
+}
+
+// findBodyEnum returns the allowed enum values declared for the given body
+// field across any recording in the group. The first non-empty declaration
+// wins. Returns nil when no recording declared an enum for that field.
+func findBodyEnum(recs []RecordedExchange, key string) []string {
+	for _, rec := range recs {
+		if allowed, ok := rec.Request.BodyEnums[key]; ok && len(allowed) > 0 {
+			return allowed
+		}
+	}
+	return nil
+}
+
+// toEnumSlice converts a []string of allowed values into the []interface{}
+// shape required by OpenAPISchema.Enum (which marshals to a JSON array).
+func toEnumSlice(allowed []string) []interface{} {
+	out := make([]interface{}, len(allowed))
+	for i, v := range allowed {
+		out[i] = v
+	}
+	return out
 }
 
 // OrderedRecordings returns the recordings that should be documented,

@@ -53,14 +53,23 @@ order:
 |--------|------|-------|
 | [`Json`](../../options.go:62) | `type Json map[string]interface{}` | Body → `application/json`. Implements `Option`, so pass it as an option to set the body. |
 | [`Form`](../../options.go:67) | `type Form map[string]interface{}` | Body → `application/x-www-form-urlencoded`; with `File` → multipart. Implements `Option`. |
-| [`Param`](../../options.go:75) | `type Param map[string]interface{}` | Substitutes `:key`/`{key}` in path. Implements `Option`. |
-| [`Query`](../../options.go:119) | `func Query(key, value string) Option` | Query parameter. |
+| [`Param`](../../options.go:75) | `type Param map[string]interface{}` | Substitutes `:key`/`{key}` in path. Values may be named-typed strings (enums). Implements `Option`. |
+| [`Query`](../../options.go:122) | `type Query map[string]interface{}` | Query parameters. Values may be named-typed strings (enums). Implements `Option`. |
 | [`Header`](../../options.go:128) | `func Header(key, value string) Option` | Per-request header. |
 | [`File`](../../options.go:144) | `func File(field, path string, contentType ...string) Option` | Upload; switches request to multipart. Optional 3rd arg sets the part's `Content-Type` (default `application/octet-stream`) for MIME-validating servers. |
 | [`Timeout`](../../options.go:157) | `func Timeout(d time.Duration) Option` | `HttpClient` only. |
 | [`Bearer`](../../options.go:167) | `func Bearer(token string) Option` | Sets `Authorization: Bearer <token>`. |
 | [`Cookie`](../../options.go:152) | `func Cookie(key, value string) Option` | Per-request cookie. |
 | [`Option`](../../options.go:35) | `interface { apply(*requestConfig) }` | Implement to build custom options. |
+
+## Enum registration (`enum_register.go`)
+
+| Function | Signature | Notes |
+|----------|-----------|-------|
+| [`RegisterEnum`](../../enum_register.go:40) | `func RegisterEnum[T ~string](values ...T)` | Register allowed values for a named string type. Infers the type via reflection. Calling twice for the same type replaces the previous entry. Safe for concurrent use. |
+| [`Enum`](../../enum_register.go:70) | `func Enum[T ~string](values ...T)` | Alias for `RegisterEnum`. |
+| [`LookupEnum`](../../enum_register.go:76) | `func LookupEnum(t reflect.Type) []string` | Returns the allowed enum values for the given `reflect.Type`, or nil if not registered. |
+| [`GetEnumCache`](../../enum_register.go:93) | `func GetEnumCache() map[string][]string` | Returns a copy of the current enum cache. Useful for debugging when enums aren't being detected. |
 
 ## `Response` assertions (`response.go`)
 

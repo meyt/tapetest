@@ -227,7 +227,7 @@ func TestSearchTodos(t *testing.T) {
 	c.Post("/todos", Json{"title": "Clean house"}).Status(201)
 	c.Post("/todos", Json{"title": "Buy presents"}).Status(201)
 
-	r := c.Get("/todos/search", Query("q", "buy"))
+	r := c.Get("/todos/search", Query{"q": "buy"})
 	r.Status(200).
 		Json("query", "buy").
 		Json("count", ">", 0)
@@ -235,12 +235,21 @@ func TestSearchTodos(t *testing.T) {
 	// Second request with two query params - the 'status' param should also
 	// appear in swagger-ui
 	c.Post("/todos", Json{"title": "Buy books", "done": true}).Status(201)
-	r2 := c.Get("/todos/search", Query("q", "buy"), Query("status", "pending"))
+
+	type StatusType string
+
+	const (
+		Pending  StatusType = "pending-status"
+		Active   StatusType = "active-status"
+		Inactive StatusType = "inactive-status"
+	)
+	Enum(Pending, Active, Inactive)
+	r2 := c.Get("/todos/search", Query{"q": "buy", "status": Active})
 	r2.Status(200).
 		Json("query", "buy").
 		Json("count", ">", 0)
 
-	c.Post("/todos/search", Query("must-not-documented", "in-the-get")).Status(400)
+	c.Post("/todos/search", Query{"must-not-documented-in-the-get-method": "some value"}).Status(400)
 }
 
 func TestSearchTodosNoQuery(t *testing.T) {

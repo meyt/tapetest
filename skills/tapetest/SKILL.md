@@ -129,12 +129,36 @@ map — prefer this over `fmt.Sprintf` so templates line up with annotation `@Pa
 ```go
 c.Post("/todos", Json{"title": "Buy milk"})
 c.Get("/todos/:id", Param{"id": 42})
-c.Get("/users", Query("page", "1"), Query("limit", "10"), Bearer(tok))
+c.Get("/users", Query{"page": "1", "limit": 10}, Bearer(tok))
 c.Post("/upload", Form{"firstName": "John"}, File("avatar", "./photo.png"))
 c.Get("/slow", Timeout(5*time.Second))
 ```
 
 Built-in options: `Query`, `Header`, `Cookie`, `Bearer`, `File`, `Timeout`, `Param`.
+
+### Path parameters (`Param`)
+
+`Param` is a `map[string]interface{}` that replaces `:key`/`{key}` placeholders in the URL
+path. Values are stringified via `fmt.Sprintf("%v", v)`, so named string types (enums)
+resolve to their underlying string value:
+
+```go
+c.Get("/user/:id/:scope", Param{"id": 12, "scope": "books"})
+// resolves to /user/12/books
+
+c.Get("/user/:prop", Param{"prop": UsernameProp})
+// resolves to /user/username
+```
+
+### Query parameters (`Query`)
+
+`Query` is a `map[string]interface{}` for setting query parameters. Values may be plain
+strings, integers, or named-typed strings (enums):
+
+```go
+c.Get("/users", Query{"page": "1", "limit": 10})
+c.Get("/admin/address-parts", Query{"sort_by": SortName})
+```
 
 ## Assertions (summary)
 
@@ -203,6 +227,69 @@ c.Cookie("session_id", "abc123")
 c.Header("Authorization", nil)             // remove
 ```
 
+## Enums
+
+tapetest supports **named string types** as enums. When you pass a value of a registered
+named type to `Query`, `Param`, `Json`, or `Form`, the recorder reflects on it and
+captures the allowed values. The generated OpenAPI document then includes `enum` constraints
+on the corresponding parameter or property schema.
+
+### Registering enum types
+
+Declare a named string type and register its values via [`RegisterEnum`](../../enum_register.go:40)
+(or its alias `Enum`). Registration can happen in `init()` or inside a test function:
+
+```go
+type StatusType string
+
+const (
+    Pending  StatusType = "pending"
+    Active   StatusType = "active"
+    Inactive StatusType = "inactive"
+)
+
+func init() {
+    tapetest.RegisterEnum(Pending, Active, Inactive)
+    // or equivalently:
+    tapetest.Enum(Pending, Active, Inactive)
+}
+```
+
+### Using enum values in requests
+
+Pass enum constants directly — they send their bare string value over the wire but carry
+type information for enum detection in the recording layer:
+
+```go
+type SortField string
+const (
+    SortName    SortField = "name"
+    SortCreated SortField = "created_at"
+)
+Enum(SortName, SortCreated)
+
+type Role string
+const (
+    RoleAdmin Role = "admin"
+    RoleUser  Role = "user"
+)
+Enum(RoleAdmin, RoleUser)
+
+c.Get("/users", Query{"sort_by": SortName})
+c.Get("/user/:prop", Param{"prop": UsernameProp})
+c.Post("/user", Json{"role": RoleAdmin})
+c.Patch("/user", Form{"gender": Male})
+```
+
+### Debugging enum detection
+
+If enums aren't appearing in the generated OpenAPI spec, use [`GetEnumCache`](../../enum_register.go:93)
+to dump the registry and verify your type key is present:
+
+```go
+t.Logf("enum cache: %v", tapetest.GetEnumCache())
+```
+
 ## Architectural rules & gotchas
 
 - **Dot-import is idiomatic.** `import . "github.com/meyt/tapetest"` lets you write
@@ -229,3 +316,4 @@ c.Header("Authorization", nil)             // remove
 - [`assertions.md`](assertions.md) — full operator semantics and JSON-path rules.
 - [`openapi-docs.md`](openapi-docs.md) — annotations, security definitions, `GenerateDocs`.
 - [`run-and-docs.sh`](run-and-docs.sh) — deterministic test + docs pipeline script.
+- [`enum_register.go`](../../enum_register.go) — enum registry, `RegisterEnum`, `LookupEnum`, `GetEnumCache`.

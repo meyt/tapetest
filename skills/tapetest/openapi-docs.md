@@ -165,6 +165,65 @@ accepts both `application/json` and `multipart/form-data` gets **multiple** medi
 entries (swagger-ui shows a selector). Recorded file uploads become
 `{ type: string, format: binary }` properties → file-chooser inputs in "Try it out".
 
+## Enum constraints in the generated spec
+
+When you use registered named string types (via `RegisterEnum` or `Enum`) in `Query`,
+`Param`, `Json`, or `Form` values, the recorder captures the allowed values and the
+OpenAPI generator emits `enum` constraints on the corresponding schema.
+
+### Query parameters
+
+A `Query` value using a registered enum type produces an `enum` array on the parameter
+schema:
+
+```json
+{
+  "name": "sort_by",
+  "in": "query",
+  "schema": {
+    "type": "string",
+    "enum": ["name", "-name", "created_at", "-created_at"]
+  }
+}
+```
+
+### Path parameters
+
+A `Param` value using a registered enum type produces an `enum` array on the path
+parameter schema:
+
+```json
+{
+  "name": "prop",
+  "in": "path",
+  "schema": {
+    "type": "string",
+    "enum": ["gender", "username"]
+  }
+}
+```
+
+### JSON and form bodies
+
+Body fields using registered enum types produce `enum` arrays on the property schema
+within the request body schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": ["admin", "user", "guest"]
+    }
+  }
+}
+```
+
+The enum values are extracted from the recorded request body (JSON or form-encoded) and
+merged across all recordings for the same endpoint, so the generated spec reflects the
+full set of allowed values.
+
 ## Example ordering & exclusion (`DocOrder`)
 
 Each recorded exchange normally becomes an example. Call [`DocOrder`](../../response.go:181)

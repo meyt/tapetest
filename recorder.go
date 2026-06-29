@@ -19,6 +19,18 @@ type RecordedRequest struct {
 	// Files records multipart/form-data file field names -> original filename.
 	// Used by the OpenAPI generator to build binary upload fields.
 	Files map[string]string `json:"files,omitempty"`
+	// QueryEnums records the allowed enum values for query parameters.
+	// Keyed by query parameter name; used by the OpenAPI generator to emit an
+	// `enum` constraint on the corresponding parameter schema.
+	QueryEnums map[string][]string `json:"queryEnums,omitempty"`
+	// ParamEnums records the allowed enum values for path parameters.
+	// Keyed by path parameter name; used by the OpenAPI generator to emit an
+	// `enum` constraint on the corresponding parameter schema.
+	ParamEnums map[string][]string `json:"paramEnums,omitempty"`
+	// BodyEnums records the allowed enum values for body fields (JSON, form, or
+	// multipart). Keyed by field name; used by the OpenAPI generator to emit an
+	// `enum` constraint on the corresponding property schema.
+	BodyEnums map[string][]string `json:"bodyEnums,omitempty"`
 }
 
 // RecordedResponse holds the captured response data for documentation generation.

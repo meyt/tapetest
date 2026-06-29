@@ -115,7 +115,7 @@ c.Request("OPTIONS", "/todos")
 ## Request Options
 
 ```go
-c.Get("/users", Query("page", "1"))
+c.Get("/users", Query{"page": "1", "limit": 10})
 c.Post("/user", Json{"name": "john"}, Header("Authorization", "Bearer token"))
 c.Get("/me", Bearer("my-token"))
 c.Get("/profile", Cookie("session_id", "abc123"))
@@ -130,6 +130,26 @@ other option, in any order, with no dedicated body argument:
 
 ```go
 c.Post("/item/:id", Param{"id": "1"}, Json{"name": "widget", "qty": 3})
+```
+
+### Path Parameters (`Param`)
+
+`Param` replaces `:key` and `{key}` placeholders in the URL path. Values are
+automatically stringified, so named string types (enums) resolve to their
+underlying string value:
+
+```go
+c.Get("/user/:id/:scope", Param{"id": 12, "scope": "books"})
+// resolves to /user/12/books
+```
+
+### Query Parameters (`Query`)
+
+`Query` is a map type for setting query-string parameters. Values may be plain
+strings, integers, or named-typed strings (enums):
+
+```go
+c.Get("/users", Query{"page": "1", "limit": 10})
 ```
 
 ## Assertions
@@ -278,7 +298,54 @@ c.Get("/profile")
 c.Header("Authorization", nil)   // Remove shared header
 ```
 
-### Example Ordering (`DocOrder`)
+### Enums
+
+tapetest supports **named string types** as enums. When you pass a value of a
+registered named type to `Query`, `Param`, `Json`, or `Form`, the recorder
+reflects on it and captures the allowed values. The generated OpenAPI document
+then includes `enum` constraints on the corresponding schema.
+
+### Registering Enums
+
+Declare a named string type and register its values:
+
+```go
+type StatusType string
+const (
+    Pending  StatusType = "pending"
+    Active   StatusType = "active"
+    Inactive StatusType = "inactive"
+)
+Enum(Pending, Active, Inactive)
+```
+
+### Using Enums
+
+Pass enum values directly — they send their bare string value over the wire
+but carry type information for enum detection:
+
+```go
+type SortField string
+const (
+    SortName     SortField = "name"
+    SortCreated  SortField = "created_at"
+)
+Enum(SortName, SortCreated)
+
+type Role string
+const (
+    RoleAdmin Role = "admin"
+    RoleUser  Role = "user"
+)
+Enum(RoleAdmin, RoleUser)
+
+c.Get("/users", Query{"sort_by": SortName})
+c.Get("/user/:prop", Param{"prop": UsernameProp})
+c.Post("/user", Json{"role": RoleAdmin})
+c.Patch("/user", Form{"gender": Male})
+```
+
+## Example Ordering (`DocOrder`)
 
 Control how examples appear in the generated Swagger UI by calling
 `DocOrder` on a response. It accepts `int` or `nil`:
